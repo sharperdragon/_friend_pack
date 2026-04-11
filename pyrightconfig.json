@@ -1,0 +1,9 @@
+{
+  "stubPath": "./typings",
+  "reportMissingModuleSource": "none",
+  "exclude": [
+    "**/__pycache__",
+    "**/node_modules",
+    "**/.*"
+  ]
+}

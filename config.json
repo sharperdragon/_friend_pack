@@ -1,0 +1,86 @@
+{
+  "add_custom_tags": {
+    "submenu_label": "Custom Tags",
+    "presets": [
+      {
+        "label": "Needs Review",
+        "tags": [
+          "#Custom::Review"
+        ]
+      }
+    ]
+  },
+  "add_missed_tags": {
+    "defaults": {
+      "menu_label": "Missed Tags ❌"
+    },
+    "actions": {
+      "base": {
+        "label": "♦️Base",
+        "tags": [
+          "##Missed-Qs"
+        ]
+      },
+      "uworld": {
+        "label": "🛃UWorld",
+        "base_tags": [
+          "##Missed-Qs::UW_Tests"
+        ],
+        "default_tag_prefix": "UW_Tests",
+        "test_range_block_size": 25
+      },
+      "nbme": {
+        "label": "🧠 NBME",
+        "base_tags": [
+          "##Missed-Qs::NBME"
+        ],
+        "default_tag_prefix": "NBME"
+      },
+      "amboss": {
+        "label": "🦠 Amboss",
+        "base_tag": "##Missed-Qs::Amboss",
+        "blank_behavior": "base_only",
+        "number_style": "number_only",
+        "remove_from_other_menu": true
+      },
+      "multi_missed": {
+        "label": "2x Missed 📌",
+        "tag_segment": "2x"
+      },
+      "key_info": {
+        "label": "Key Info 🗝️",
+        "tag_base": "#Custom::#KEY"
+      },
+      "correct_guess": {
+        "label": "Guessed Correct 🎫",
+        "tags": [
+          "#Custom::correct_marked"
+        ]
+      },
+      "other": {
+        "resources": [
+          "Kaplan",
+          "True-Learn",
+          "NBOME"
+        ],
+        "tag_suffix": "Other"
+      }
+    },
+    "Q_Banks": [
+      "UWORLD",
+      "NBME",
+      "AMBOSS"
+    ]
+  },
+  "browser_menu": {
+    "top_menu_title": "Custom"
+  },
+  "find_QIDs": {
+    "UW_STEP": false,
+    "UW_COMLEX": false,
+    "QID_parent_tag": "",
+    "TAG_PREFIX": "#UWorld::\\w+::",
+    "MISSED_tag": "##Missed-Qs",
+    "default_missed_only": false
+  }
+}

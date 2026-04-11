@@ -1,0 +1,51 @@
+# Find QIDs
+
+Use this module to search notes by QID tag suffix.
+`Custom -> QID search settings` opens a compact form with:
+- `UWorld version`
+- `Missed questions tag`
+- `QID parent tag`
+
+## Default Config (`_friend_pack/config.json`)
+
+| Key | Type | Purpose |
+| --- | --- | --- |
+| `QID_parent_tag` | `string` | Primary parent tag for QID searches. If non-empty, query is `tag:re:{QID_parent_tag}::{qid}$`. |
+| `UW_STEP` | `boolean` | If `true`, each QID query is `tag:re:#UWORLD::STEP::{qid}$`. |
+| `UW_COMLEX` | `boolean` | If `true`, each QID query is `tag:re:#UWORLD::COMLEX::{qid}$`. |
+| `TAG_PREFIX` | `string` | Fallback parent tag when `QID_parent_tag` is empty and both mode toggles are `false`. |
+| `MISSED_tag` | `string` | Raw parent missed tag used when "missed only" is enabled. |
+| `default_missed_only` | `boolean` | Default checkbox state for missed-only searches. |
+
+QID search precedence:
+
+1. `QID_parent_tag` (if non-empty)
+2. `UW_STEP` (if true)
+3. `UW_COMLEX` (if true)
+4. `TAG_PREFIX` fallback (`tag:re:{TAG_PREFIX}::{qid}$`)
+
+If both mode toggles are `true` and `QID_parent_tag` is empty, `UW_STEP` takes priority.
+
+Normalization for `QID_parent_tag` and `TAG_PREFIX`:
+
+- Optional `tag:` / `tag:re:` prefixes are accepted and stripped.
+- Trailing `:` / `::` are accepted and normalized.
+- Query builder always emits exactly one `::{qid}` separator.
+
+## Legacy Key Support
+
+- Legacy `MISSED_FILTER` and `MISSED_FILTER_TAG` values are still accepted.
+- Legacy values using `tag:` / `tag:re:` prefixes are normalized to raw `MISSED_tag` format.
+
+## Defaults
+
+```json
+{
+  "QID_parent_tag": "",
+  "UW_STEP": false,
+  "UW_COMLEX": false,
+  "TAG_PREFIX": "#UWorld::\\w+::",
+  "MISSED_tag": "##Missed-Qs",
+  "default_missed_only": false
+}
+```
