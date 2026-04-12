@@ -22,15 +22,48 @@ from aqt.qt import (
     QCheckBox
 )
 
-# --- QDialogButtonBox enum compatibility (Qt5 vs Qt6) ---
-try:
-    # PyQt6 / Qt6 style
-    BUTTON_OK = QDialogButtonBox.StandardButton.Ok
-    BUTTON_CANCEL = QDialogButtonBox.StandardButton.Cancel
-except AttributeError:
-    # Qt5 / older style
-    BUTTON_OK = QDialogButtonBox.StandardButton.Ok
-    BUTTON_CANCEL = QDialogButtonBox.StandardButton.Cancel
+# =========================
+# Compatibility constants
+# =========================
+QT_ARROW_KEY_LEFT_NAME = "Key_Left"
+QT_ARROW_KEY_RIGHT_NAME = "Key_Right"
+
+
+def _resolve_dialog_button(button_name: str):
+    """Resolve QDialogButtonBox button enum across Qt6/Qt5 layouts."""
+    standard_button = getattr(QDialogButtonBox, "StandardButton", None)
+    if standard_button is not None:
+        value = getattr(standard_button, button_name, None)
+        if value is not None:
+            return value
+    return getattr(QDialogButtonBox, button_name)
+
+
+def _resolve_qt_key(key_name: str):
+    """Resolve key enum across Qt6 nested enum and Qt5 flat enum."""
+    qt6_keys = getattr(Qt, "Key", None)
+    if qt6_keys is not None:
+        value = getattr(qt6_keys, key_name, None)
+        if value is not None:
+            return value
+    return getattr(Qt, key_name, None)
+
+
+def _resolve_window_non_modal():
+    """Resolve non-modal window enum value across Qt6/Qt5."""
+    modality_enum = getattr(Qt, "WindowModality", None)
+    if modality_enum is not None:
+        value = getattr(modality_enum, "NonModal", None)
+        if value is not None:
+            return value
+    return getattr(Qt, "NonModal", None)
+
+
+BUTTON_OK = _resolve_dialog_button("Ok")
+BUTTON_CANCEL = _resolve_dialog_button("Cancel")
+KEY_LEFT = _resolve_qt_key(QT_ARROW_KEY_LEFT_NAME)
+KEY_RIGHT = _resolve_qt_key(QT_ARROW_KEY_RIGHT_NAME)
+WINDOW_MODALITY_NON_MODAL = _resolve_window_non_modal()
 
 from aqt.utils import tooltip, showWarning, qconnect
 from ..module_configs import load_module_config
@@ -186,7 +219,8 @@ class _FQIDS_Stepper(QDialog):
     """Step through QIDs one-by-one; with jump, previous, and next."""
     def __init__(self, browser, tags: List[str], parent: Optional[QWidget] = None):
         super().__init__(parent)
-        self.setWindowModality(Qt.WindowModality.NonModal)
+        if WINDOW_MODALITY_NON_MODAL is not None:
+            self.setWindowModality(WINDOW_MODALITY_NON_MODAL)
         self.browser = browser
         self.tags = tags
         self.i = -1
@@ -232,8 +266,10 @@ class _FQIDS_Stepper(QDialog):
                 pass
 
         # Keyboard shortcuts: ← = Prev, → = Next
-        QShortcut(QKeySequence(Qt.Key.Key_Left), self, activated=self._prev)
-        QShortcut(QKeySequence(Qt.Key.Key_Right), self, activated=self._next)
+        if KEY_LEFT is not None:
+            QShortcut(QKeySequence(KEY_LEFT), self, activated=self._prev)
+        if KEY_RIGHT is not None:
+            QShortcut(QKeySequence(KEY_RIGHT), self, activated=self._next)
 
         # --- Layout ---
         lay = QVBoxLayout(self)

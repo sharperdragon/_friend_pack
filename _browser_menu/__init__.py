@@ -9,6 +9,12 @@ from aqt import gui_hooks
 from aqt.browser import Browser
 from aqt.utils import showText
 
+# =========================
+# Compatibility constants
+# =========================
+BROWSER_MENUS_INIT_HOOK_NAME = "browser_menus_did_init"
+
+
 # ! Try to import the debug helper _dbg from loader; fall back to a no-op if missing.
 try:
     from .loader import load_browser_menu, _dbg
@@ -35,5 +41,27 @@ def _on_browser_menus_did_init(browser: Browser) -> None:
         )
 
 
+def _register_browser_menu_hook() -> bool:
+    """
+    Register Browser menu hook when available.
+    Gracefully skip on older Anki versions where this hook may not exist.
+    """
+    hook = getattr(gui_hooks, BROWSER_MENUS_INIT_HOOK_NAME, None)
+    if hook is None or not hasattr(hook, "append"):
+        _dbg(
+            f"init: hook '{BROWSER_MENUS_INIT_HOOK_NAME}' not available; "
+            "skipping _browser_menu registration"
+        )
+        return False
+
+    try:
+        hook.append(_on_browser_menus_did_init)
+        _dbg("init: browser menu hook registered")
+        return True
+    except Exception:
+        _dbg("init: browser menu hook registration failed\n" + traceback.format_exc())
+        return False
+
+
 # * Register hook so the custom menu is created whenever a Browser's menus are initialized.
-gui_hooks.browser_menus_did_init.append(_on_browser_menus_did_init)
+_register_browser_menu_hook()

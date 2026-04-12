@@ -3,7 +3,7 @@
 `_friend_pack` is a local Anki add-on folder that bundles two custom modules in one package:
 
 - `_browser_menu`: adds custom actions inside the Browser menu.
-- `_change_notes_shua`: adds context-menu actions for tagging selected notes.
+- `_change_notes`: adds context-menu actions for tagging selected notes.
 
 ## What To Do With This Folder
 
@@ -19,6 +19,15 @@ Important:
 1. Close Anki.
 2. If on macOS, double-click `Install_Friend_Pack.command` (inside this folder).
 3. Start Anki again.
+
+## Publish On AnkiWeb
+
+1. Run `build_ankiweb_package.py` in VSCode.
+2. Upload the generated `dist/_friend_pack.ankiaddon` file to AnkiWeb.
+
+The build script creates a clean upload package with files at archive root
+(no extra `_friend_pack/` parent folder), and excludes local artifacts like
+`__pycache__`, `.pyc`, `.DS_Store`, and `_browser_menu_debug.log`.
 
 ## Share As A Download (One-Click Install)
 

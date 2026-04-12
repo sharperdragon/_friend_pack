@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 from aqt import mw, gui_hooks  # noqa: F401  # (imported for type / runtime context)
@@ -35,6 +36,12 @@ DEFAULT_MISSED_ONLY = False
 
 STEP_PARENT_TAG = "#UWORLD::STEP"
 COMLEX_PARENT_TAG = "#UWORLD::COMLEX"
+
+# Collection API fallback order for note lookups (legacy/new).
+COLLECTION_FIND_NOTES_METHODS = ("find_notes", "findNotes")
+
+# When lookup API is unavailable/unknown, avoid misleading "No cards found" warnings.
+SUPPRESS_MISSING_TOOLTIP_ON_UNKNOWN_LOOKUP = True
 
 # ! Do not edit: conservative, add-on local defaults (overridden by config)
 _DEFAULTS: Dict[str, Any] = {
@@ -383,18 +390,60 @@ def run_browser_query(browser: Browser, query: str) -> None:
 # ======================================================================
 # Lookup + notifications
 # ======================================================================
-def find_any_for_qid(qid: Union[str, int]) -> bool:
+def _find_note_ids(query: str) -> Optional[list[int]]:
     """
-    Return True if there is at least one matching note/card for the QID's tag.
+    Find note ids using whichever collection API is available.
+
+    Returns:
+      - list[int] when lookup succeeded
+      - None when no supported lookup API is callable (unknown state)
+    """
+    col = getattr(mw, "col", None)
+    if col is None:
+        return None
+
+    for method_name in COLLECTION_FIND_NOTES_METHODS:
+        finder = getattr(col, method_name, None)
+        if not callable(finder):
+            continue
+        try:
+            result = finder(query)
+        except Exception:
+            continue
+
+        if result is None:
+            return []
+        if isinstance(result, (str, bytes)):
+            return []
+        if not isinstance(result, Iterable):
+            return []
+
+        try:
+            return [int(nid) for nid in result]
+        except Exception:
+            return []
+
+    return None
+
+
+def find_any_for_qid(qid: Union[str, int]) -> Optional[bool]:
+    """
+    Return whether a QID has at least one matching note/card.
+
+    Returns:
+      - True/False when lookup APIs are available
+      - None when lookup API support is unknown/unavailable
+
     Uses the same search syntax the Browser uses for consistency.
     """
     try:
         query = qid_to_tag(qid, regex=True)  # 'tag:re:<parent>::<qid>$'
-        note_ids = mw.col.find_notes(query)
+        note_ids = _find_note_ids(query)
+        if note_ids is None:
+            return None
         return len(note_ids) > 0
     except Exception:
-        # If search fails for any reason, treat as not found (conservative)
-        return False
+        return None
 
 
 def notify_if_missing(qids: Sequence[Union[str, int]]) -> None:
@@ -402,7 +451,18 @@ def notify_if_missing(qids: Sequence[Union[str, int]]) -> None:
     Silent unless at least one QID has no associated notes/cards.
     Uses a non-blocking tooltip so it never interrupts your flow.
     """
-    missing = [str(q) for q in qids if not find_any_for_qid(q)]
+    missing: list[str] = []
+    has_unknown_lookup = False
+    for qid in qids:
+        has_any = find_any_for_qid(qid)
+        if has_any is False:
+            missing.append(str(qid))
+        elif has_any is None:
+            has_unknown_lookup = True
+
+    if has_unknown_lookup and SUPPRESS_MISSING_TOOLTIP_ON_UNKNOWN_LOOKUP:
+        return
+
     if missing:
         tooltip(f"No cards found for QIDs: {', '.join(missing)}", period=5000, parent=mw)
 

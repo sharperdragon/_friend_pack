@@ -34,6 +34,11 @@ ACTION_LABEL_SEARCH_ALL = "Search all"
 ACTION_LABEL_SEARCH_ONE_BY_ONE = "Search 1-by-1"
 ACTION_LABEL_QID_SEARCH_CONFIG = "QID search settings"
 
+# Debug logging (keep disabled for release builds)
+ENABLE_DEBUG_LOGGING = False
+DEBUG_LOG_FILENAME = "_browser_menu_debug.log"
+DEBUG_TIMESTAMP_FORMAT = "%H-%M_%m-%d"
+
 LEGACY_FIND_QIDS_ACTION_LABELS = frozenset(
     {
         ACTION_LABEL_SEARCH_ALL,
@@ -67,14 +72,18 @@ HARDCODED_ACTIONS: tuple[ActionConfig, ...] = (
     ),
 )
 
+
 def _dbg(msg: str) -> None:
     """
-    Append a timestamped debug line to _browser_menu_debug.log in this addon.
+    Append a timestamped debug line to disk when debug logging is enabled.
     """
+    if not ENABLE_DEBUG_LOGGING:
+        return
+
     try:
-        ts = datetime.now().strftime("%H-%M_%m-%d")
+        ts = datetime.now().strftime(DEBUG_TIMESTAMP_FORMAT)
         addon_root = Path(__file__).parent
-        log_path = addon_root / "_browser_menu_debug.log"
+        log_path = addon_root / DEBUG_LOG_FILENAME
         with log_path.open("a", encoding="utf-8") as f:
             f.write(f"[{ts}] {msg}\n")
     except Exception:

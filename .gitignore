@@ -2,6 +2,7 @@
 Thumbs.db
 __pycache__/
 *.pyc
+_browser_menu/_browser_menu_debug.log
 venv/
 .env/
 .vscode/
