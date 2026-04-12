@@ -22,12 +22,30 @@ Important:
 
 ## Publish On AnkiWeb
 
-1. Run `build_ankiweb_package.py` in VSCode.
-2. Upload the generated `dist/_friend_pack.ankiaddon` file to AnkiWeb.
+1. In VSCode, open `build_ankiweb_package.py`.
+2. Click **Run Python File** (top-right play button in the editor).
+3. Upload the generated `dist/_friend_pack.ankiaddon` file to AnkiWeb.
 
 The build script creates a clean upload package with files at archive root
 (no extra `_friend_pack/` parent folder), and excludes local artifacts like
 `__pycache__`, `.pyc`, `.DS_Store`, and `_browser_menu_debug.log`.
+
+## Publish Readiness Checklist
+
+Before uploading:
+
+1. Open Anki and confirm the add-on is enabled.
+2. Open `Tools -> Friend Pack Config` and verify the config window opens/saves.
+3. Open Browser and confirm `Custom` menu includes:
+   - `Search all`
+   - `Search 1-by-1`
+   - `QID search settings`
+4. In Browser, right-click selected notes and confirm:
+   - `Missed Tags ❌` actions work
+   - `Custom Tags` presets apply tags
+5. Build package from VSCode and verify `dist/_friend_pack.ankiaddon` is newly created.
+
+If all checks pass, it is ready to publish.
 
 ## Share As A Download (One-Click Install)
 
@@ -89,3 +107,4 @@ Your profile-level overrides saved by Anki are preserved unless you clear them.
 - If actions do not appear: ensure notes are selected where required.
 - If config save fails: verify `config.json` contains valid JSON.
 - If install seems ignored: check for accidental nested folder structure.
+- If VSCode diagnostics look stale after edits: run `Pylance: Restart Language Server`.
