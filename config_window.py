@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 # pyright: reportMissingImports=false
 # mypy: disable_error_code=import
@@ -127,6 +128,174 @@ class FriendPackConfigDialog(QDialog):
         else:
             self.help_view.setPlainText(text)
 
+    @staticmethod
+    def _type_name(value: object) -> str:
+        return type(value).__name__
+
+    def _validate_config_structure(self, cfg: dict[str, Any]) -> list[str]:
+        """
+        Lightweight structural checks to prevent runtime-breaking saves.
+        """
+        errors: list[str] = []
+
+        def section_dict(section_name: str) -> dict[str, Any] | None:
+            value = cfg.get(section_name)
+            if value is None:
+                return None
+            if not isinstance(value, dict):
+                errors.append(
+                    f"Invalid `{section_name}`: expected object, got {self._type_name(value)}."
+                )
+                return None
+            return value
+
+        def expect_string(container: dict[str, Any], key: str, path: str) -> None:
+            if key in container and not isinstance(container[key], str):
+                errors.append(
+                    f"Invalid `{path}`: expected string, got {self._type_name(container[key])}."
+                )
+
+        def expect_bool(container: dict[str, Any], key: str, path: str) -> None:
+            if key in container and type(container[key]) is not bool:
+                errors.append(
+                    f"Invalid `{path}`: expected boolean, got {self._type_name(container[key])}."
+                )
+
+        def expect_int(container: dict[str, Any], key: str, path: str) -> None:
+            if key in container and (not isinstance(container[key], int) or isinstance(container[key], bool)):
+                errors.append(
+                    f"Invalid `{path}`: expected integer, got {self._type_name(container[key])}."
+                )
+
+        def expect_string_list(value: Any, path: str) -> None:
+            if not isinstance(value, list):
+                errors.append(f"Invalid `{path}`: expected array of strings, got {self._type_name(value)}.")
+                return
+            for idx, item in enumerate(value):
+                if not isinstance(item, str):
+                    errors.append(
+                        f"Invalid `{path}[{idx}]`: expected string, got {self._type_name(item)}."
+                    )
+                    break
+
+        add_custom_tags = section_dict("add_custom_tags")
+        if add_custom_tags is not None:
+            expect_string(add_custom_tags, "submenu_label", "add_custom_tags.submenu_label")
+            if "presets" in add_custom_tags:
+                presets = add_custom_tags["presets"]
+                if not isinstance(presets, list):
+                    errors.append(
+                        f"Invalid `add_custom_tags.presets`: expected array, got {self._type_name(presets)}."
+                    )
+                else:
+                    for idx, preset in enumerate(presets):
+                        if not isinstance(preset, dict):
+                            errors.append(
+                                f"Invalid `add_custom_tags.presets[{idx}]`: expected object, got {self._type_name(preset)}."
+                            )
+                            continue
+                        expect_string(preset, "label", f"add_custom_tags.presets[{idx}].label")
+                        if "tags" in preset:
+                            expect_string_list(preset["tags"], f"add_custom_tags.presets[{idx}].tags")
+
+        add_missed_tags = section_dict("add_missed_tags")
+        if add_missed_tags is not None:
+            defaults = add_missed_tags.get("defaults")
+            if defaults is not None:
+                if not isinstance(defaults, dict):
+                    errors.append(
+                        f"Invalid `add_missed_tags.defaults`: expected object, got {self._type_name(defaults)}."
+                    )
+                else:
+                    expect_string(defaults, "menu_label", "add_missed_tags.defaults.menu_label")
+
+            actions = add_missed_tags.get("actions")
+            if actions is not None:
+                if not isinstance(actions, dict):
+                    errors.append(
+                        f"Invalid `add_missed_tags.actions`: expected object, got {self._type_name(actions)}."
+                    )
+                else:
+                    def action_dict(action_name: str) -> dict[str, Any] | None:
+                        action_value = actions.get(action_name)
+                        if action_value is None:
+                            return None
+                        if not isinstance(action_value, dict):
+                            errors.append(
+                                f"Invalid `add_missed_tags.actions.{action_name}`: expected object, got {self._type_name(action_value)}."
+                            )
+                            return None
+                        return action_value
+
+                    base = action_dict("base")
+                    if base is not None:
+                        expect_string(base, "label", "add_missed_tags.actions.base.label")
+                        if "tags" in base:
+                            expect_string_list(base["tags"], "add_missed_tags.actions.base.tags")
+
+                    uworld = action_dict("uworld")
+                    if uworld is not None:
+                        expect_string(uworld, "label", "add_missed_tags.actions.uworld.label")
+                        if "base_tags" in uworld:
+                            expect_string_list(uworld["base_tags"], "add_missed_tags.actions.uworld.base_tags")
+                        expect_string(uworld, "default_tag_prefix", "add_missed_tags.actions.uworld.default_tag_prefix")
+                        expect_int(uworld, "test_range_block_size", "add_missed_tags.actions.uworld.test_range_block_size")
+
+                    nbme = action_dict("nbme")
+                    if nbme is not None:
+                        expect_string(nbme, "label", "add_missed_tags.actions.nbme.label")
+                        if "base_tags" in nbme:
+                            expect_string_list(nbme["base_tags"], "add_missed_tags.actions.nbme.base_tags")
+                        expect_string(nbme, "default_tag_prefix", "add_missed_tags.actions.nbme.default_tag_prefix")
+
+                    amboss = action_dict("amboss")
+                    if amboss is not None:
+                        expect_string(amboss, "label", "add_missed_tags.actions.amboss.label")
+                        expect_string(amboss, "base_tag", "add_missed_tags.actions.amboss.base_tag")
+                        expect_string(amboss, "blank_behavior", "add_missed_tags.actions.amboss.blank_behavior")
+                        expect_string(amboss, "number_style", "add_missed_tags.actions.amboss.number_style")
+                        expect_bool(amboss, "remove_from_other_menu", "add_missed_tags.actions.amboss.remove_from_other_menu")
+
+                    multi_missed = action_dict("multi_missed")
+                    if multi_missed is not None:
+                        expect_string(multi_missed, "label", "add_missed_tags.actions.multi_missed.label")
+                        expect_string(multi_missed, "tag_segment", "add_missed_tags.actions.multi_missed.tag_segment")
+
+                    key_info = action_dict("key_info")
+                    if key_info is not None:
+                        expect_string(key_info, "label", "add_missed_tags.actions.key_info.label")
+                        expect_string(key_info, "tag_base", "add_missed_tags.actions.key_info.tag_base")
+
+                    correct_guess = action_dict("correct_guess")
+                    if correct_guess is not None:
+                        expect_string(correct_guess, "label", "add_missed_tags.actions.correct_guess.label")
+                        if "tags" in correct_guess:
+                            expect_string_list(correct_guess["tags"], "add_missed_tags.actions.correct_guess.tags")
+
+                    other = action_dict("other")
+                    if other is not None:
+                        if "resources" in other:
+                            expect_string_list(other["resources"], "add_missed_tags.actions.other.resources")
+                        expect_string(other, "tag_suffix", "add_missed_tags.actions.other.tag_suffix")
+
+            if "Q_Banks" in add_missed_tags:
+                expect_string_list(add_missed_tags["Q_Banks"], "add_missed_tags.Q_Banks")
+
+        browser_menu = section_dict("browser_menu")
+        if browser_menu is not None:
+            expect_string(browser_menu, "top_menu_title", "browser_menu.top_menu_title")
+
+        find_qids = section_dict("find_QIDs")
+        if find_qids is not None:
+            expect_bool(find_qids, "UW_STEP", "find_QIDs.UW_STEP")
+            expect_bool(find_qids, "UW_COMLEX", "find_QIDs.UW_COMLEX")
+            expect_string(find_qids, "QID_parent_tag", "find_QIDs.QID_parent_tag")
+            expect_string(find_qids, "TAG_PREFIX", "find_QIDs.TAG_PREFIX")
+            expect_string(find_qids, "MISSED_tag", "find_QIDs.MISSED_tag")
+            expect_bool(find_qids, "default_missed_only", "find_QIDs.default_missed_only")
+
+        return errors
+
     def restore_defaults(self) -> None:
         self.config_editor.setPlainText(
             json.dumps(self._default_config or {}, indent=4, ensure_ascii=False)
@@ -143,6 +312,16 @@ class FriendPackConfigDialog(QDialog):
 
         if not isinstance(cfg, dict):
             showInfo("Error: Top-level JSON must be an object (dictionary).")
+            return
+
+        validation_errors = self._validate_config_structure(cfg)
+        if validation_errors:
+            shown_errors = validation_errors[:12]
+            more_count = len(validation_errors) - len(shown_errors)
+            details = "\n".join(f"- {err}" for err in shown_errors)
+            if more_count > 0:
+                details += f"\n- ...and {more_count} more issue(s)."
+            showInfo(f"Error: Config validation failed.\n\n{details}")
             return
 
         ok = ConfigManager.save_full_config(cfg)

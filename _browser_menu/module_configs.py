@@ -10,13 +10,13 @@ from .config_ui import ModuleConfigDialog, FindQidsSettingsDialog
 
 try:
     # Reuse debug logger from loader.py
-    from ..loader import _dbg  # type: ignore[attr-defined]
+    from .loader import _dbg  # type: ignore[attr-defined]
 except Exception:
     def _dbg(msg: str) -> None:
         return
 
 try:
-    from ...config_manager import ConfigManager as RootConfigManager
+    from ..config_manager import ConfigManager as RootConfigManager
 except Exception:
     RootConfigManager = None  # type: ignore[assignment]
 
@@ -57,6 +57,9 @@ MODULE_CONFIG_LEGACY_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
 MODULE_CONFIG_DEFAULTS: dict[str, dict[str, Any]] = {
     FIND_QIDS_MODULE_NAME: FIND_QIDS_DEFAULT_CONFIG,
 }
+MODULE_CONFIG_DOC_PATHS: dict[str, str] = {
+    FIND_QIDS_MODULE_NAME: "config.md",
+}
 
 
 def _normalize_module_value(module_name: str, key: str, value: Any) -> Any:
@@ -83,7 +86,11 @@ def _normalize_module_value(module_name: str, key: str, value: Any) -> Any:
 
 
 def _module_md_path(module_name: str) -> Path:
-    return Path(__file__).resolve().parent / module_name / "config.md"
+    base_dir = Path(__file__).resolve().parent
+    mapped_path = MODULE_CONFIG_DOC_PATHS.get(module_name)
+    if mapped_path:
+        return base_dir / mapped_path
+    return base_dir / module_name / "config.md"
 
 
 def _load_markdown(path: Path) -> str:

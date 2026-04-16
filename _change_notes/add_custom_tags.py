@@ -1,12 +1,12 @@
 # pyright: reportMissingImports=false
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypedDict
 
 from aqt.qt import QAction, QMenu
 from aqt.utils import showInfo, tooltip
 
-from ..config_manager import ConfigManager
+from .config_manager import ConfigManager
 
 # ! ----------------------------- CONFIG SECTION -----------------------------
 CONFIG_SECTION = "add_custom_tags"
@@ -24,6 +24,11 @@ CONFIG_KEY_PRESETS = "presets"
 # ! -----------------------------------------------------------------------------
 
 
+class TagPreset(TypedDict):
+    label: str
+    tags: list[str]
+
+
 def _to_string_list(value: Any) -> list[str]:
     if isinstance(value, str):
         cleaned = value.strip()
@@ -36,11 +41,11 @@ def _to_string_list(value: Any) -> list[str]:
     return []
 
 
-def _normalize_presets(raw: Any) -> list[dict[str, list[str]]]:
+def _normalize_presets(raw: Any) -> list[TagPreset]:
     if not isinstance(raw, list):
         return []
 
-    normalized: list[dict[str, list[str]]] = []
+    normalized: list[TagPreset] = []
     for preset in raw:
         if not isinstance(preset, dict):
             continue
@@ -57,7 +62,7 @@ def _normalize_presets(raw: Any) -> list[dict[str, list[str]]]:
 
 def _load_runtime_config(
     menu_label_override: str | None = None,
-) -> tuple[str, list[dict[str, list[str]]], str, str]:
+) -> tuple[str, list[TagPreset], str, str]:
     section_cfg = ConfigManager(CONFIG_SECTION).load()
     if not isinstance(section_cfg, dict):
         section_cfg = {}

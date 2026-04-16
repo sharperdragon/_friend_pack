@@ -4,8 +4,8 @@ from aqt import gui_hooks, mw
 from aqt.browser import Browser
 from aqt.qt import QMenu
 
-from .modules.add_custom_tags import add_custom_tag_menu_items
-from .modules import add_missed_tags as missed_tags_module
+from .add_custom_tags import add_custom_tag_menu_items
+from . import add_missed_tags as missed_tags_module
 
 CUSTOM_TAGS_MENU_LABEL = "Custom Tags"
 TRUE_LEARN_RESOURCE_LABEL = "True-Learn"

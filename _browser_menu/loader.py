@@ -13,7 +13,7 @@ from typing import Any, Callable, Optional
 from aqt.browser import Browser
 from aqt.qt import QMenu
 
-from .modules.module_configs import open_find_qids_config
+from .module_configs import open_find_qids_config
 from .menu_utils import add_action
 
 try:
@@ -133,32 +133,24 @@ def _resolve_callable(browser: Browser, cfg: ActionConfig) -> Optional[Callable[
         return None
 
     # Determine import path: allow fully-qualified modules or short names.
-    # For short names, auto-detect whether they live at the addon root
-    # (e.g. module_configs.py) or under the "modules" package (e.g. modules/Find_QIDs).
+    # For short names, resolve only within the add-on root package.
     if "." in cfg.module:
         # Treat as a fully-qualified import path, e.g. "_browser_menu.module_configs"
         import_path = cfg.module
     else:
         addon_root = Path(__file__).parent
-        modules_dir = addon_root / "modules"
-
-        # Candidates at addon root:
         root_file = addon_root / f"{cfg.module}.py"
         root_pkg = addon_root / cfg.module / "__init__.py"
 
-        # Candidates under modules/:
-        mod_file = modules_dir / f"{cfg.module}.py"
-        mod_pkg = modules_dir / cfg.module / "__init__.py"
-
         if root_file.exists() or root_pkg.exists():
-            # e.g. "_browser_menu.module_configs"
             import_path = f"{ADDON_PACKAGE}.{cfg.module}"
-        elif mod_file.exists() or mod_pkg.exists():
-            # e.g. "_browser_menu.modules.Find_QIDs"
-            import_path = f"{ADDON_PACKAGE}.modules.{cfg.module}"
         else:
-            # Fallback: assume modules package, but log a warning if import fails
-            import_path = f"{ADDON_PACKAGE}.modules.{cfg.module}"
+            # Keep root-package fallback for compatibility with dynamic module names.
+            import_path = f"{ADDON_PACKAGE}.{cfg.module}"
+            _dbg(
+                f"_resolve_callable: no module file/package found for short module "
+                f"'{cfg.module}' under add-on root; trying import '{import_path}'"
+            )
 
     try:
         mod = importlib.import_module(import_path)

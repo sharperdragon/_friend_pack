@@ -8,5 +8,5 @@ venv/
 .vscode/
 dist/
 build/
-
+planned_update_config.json
 /OLD

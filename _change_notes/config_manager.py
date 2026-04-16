@@ -16,7 +16,7 @@ class ConfigManager:
 
     ROOT_ADDON_NAME = RootConfigManager.ADDON_NAME
 
-    def __init__(self, addon_name: str, global_config_name: str = None):
+    def __init__(self, addon_name: str, global_config_name: str | None = None):
         self.addon_name = addon_name
         self.global_config_name = global_config_name
         self.last_load_errors: list[str] = []

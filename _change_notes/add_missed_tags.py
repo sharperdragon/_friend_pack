@@ -8,7 +8,7 @@ from typing import Any
 from aqt.qt import QAction, QInputDialog, QMenu
 from aqt.utils import showInfo, tooltip
 
-from ..config_manager import ConfigManager
+from .config_manager import ConfigManager
 
 # ! ----------------------------- CONFIG SECTIONS -----------------------------
 CONFIG_SECTION = "add_missed_tags"

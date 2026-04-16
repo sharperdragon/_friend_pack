@@ -11,6 +11,11 @@ from aqt.browser import Browser
 from aqt.qt import QApplication
 from aqt.utils import tooltip, showWarning
 
+try:
+    from ..config_manager import ConfigManager as RootConfigManager
+except Exception:  # pragma: no cover - defensive import fallback
+    RootConfigManager = None  # type: ignore[assignment]
+
 
 # ======================================================================
 # $ Essentials at the top (your preference)
@@ -43,7 +48,7 @@ COLLECTION_FIND_NOTES_METHODS = ("find_notes", "findNotes")
 # When lookup API is unavailable/unknown, avoid misleading "No cards found" warnings.
 SUPPRESS_MISSING_TOOLTIP_ON_UNKNOWN_LOOKUP = True
 
-# ! Do not edit: conservative, add-on local defaults (overridden by config)
+# ! Do not edit: fallback-only local defaults when root config access is unavailable
 _DEFAULTS: Dict[str, Any] = {
     CONFIG_KEY_UW_STEP: DEFAULT_UW_STEP,
     CONFIG_KEY_UW_COMLEX: DEFAULT_UW_COMLEX,
@@ -130,6 +135,31 @@ def _normalize_bool(value: Any, fallback: bool = False) -> bool:
     return bool(value) if value is not None else fallback
 
 
+def _load_effective_root_config() -> Dict[str, Any]:
+    """
+    Prefer root ConfigManager so shipped defaults come from root config.json.
+    """
+    if RootConfigManager is None:
+        return {}
+    try:
+        data = RootConfigManager.load_effective_config()
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _load_direct_config_bucket() -> Dict[str, Any]:
+    """
+    Fallback reader when root ConfigManager import is unavailable.
+    """
+    try:
+        root = _addon_root_key()
+        data = mw.addonManager.getConfig(root) or {}
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def get_config() -> Dict[str, Any]:
     """
     Load config from Anki, merge with defaults, normalize fields.
@@ -142,20 +172,18 @@ def get_config() -> Dict[str, Any]:
       - TAG_PREFIX (str, raw parent expression)
       - MISSED_tag (raw tag text)
     """
-    try:
-        root = _addon_root_key()
-        user = mw.addonManager.getConfig(root) or {}
-    except Exception:
-        user = {}
-    if not isinstance(user, dict):
-        user = {}
+    # Primary path: root defaults + user overrides via root ConfigManager.
+    source = _load_effective_root_config()
+    if not source:
+        # Compatibility fallback for unusual import/runtime failures.
+        source = _load_direct_config_bucket()
 
-    section_cfg = user.get(CONFIG_SECTION_FIND_QIDS, {})
+    section_cfg = source.get(CONFIG_SECTION_FIND_QIDS, {})
     if isinstance(section_cfg, dict):
         # Nested section wins over legacy top-level keys when both are present.
-        source = {**user, **section_cfg}
+        source = {**source, **section_cfg}
     else:
-        source = dict(user)
+        source = dict(source)
 
     raw_missed_tag = source.get(CONFIG_KEY_MISSED_TAG)
     if raw_missed_tag is None:

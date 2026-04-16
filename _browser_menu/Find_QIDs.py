@@ -1,10 +1,10 @@
-# __init__.py — _Find_QIDs (refactored to use helper.py)
+# Find_QIDs.py — _Find_QIDs (refactored to use helper.py)
 # 18-40_11-05
 
 # ========== DEBUG IMPORT ==========
 try:
     # Reuse the add-on's debug logger from loader.py
-    from ..loader import _dbg  # type: ignore[attr-defined]
+    from .loader import _dbg  # type: ignore[attr-defined]
 except Exception:
     # Fallback: no-op debug function if loader._dbg is not available
     def _dbg(msg: str) -> None:
@@ -66,10 +66,10 @@ KEY_RIGHT = _resolve_qt_key(QT_ARROW_KEY_RIGHT_NAME)
 WINDOW_MODALITY_NON_MODAL = _resolve_window_non_modal()
 
 from aqt.utils import tooltip, showWarning, qconnect
-from ..module_configs import load_module_config
+from .module_configs import load_module_config
 
 # === Import thin, shared logic from helper.py ==========================
-# ! Keep __init__.py as UI wiring only; all logic lives in helper.py
+# ! Keep Find_QIDs.py as UI wiring only; all logic lives in helper.py
 from .helper import (
     CONFIG_KEY_DEFAULT_MISSED_ONLY,
     CONFIG_KEY_MISSED_TAG,

@@ -2,6 +2,7 @@
 
 Use this module to search notes by QID tag suffix.
 `Custom -> QID search settings` opens a compact form with:
+
 - `UWorld version`
 - `Missed questions tag`
 - `QID parent tag`

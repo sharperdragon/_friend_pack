@@ -29,6 +29,10 @@
         "default_tag_prefix": "UW_Tests",
         "test_range_block_size": 25
       },
+      "multi_missed": {
+        "label": "2x Missed 📌",
+        "tag_segment": "2x"
+      },
       "nbme": {
         "label": "🧠 NBME",
         "base_tags": [
@@ -43,10 +47,6 @@
         "number_style": "number_only",
         "remove_from_other_menu": true
       },
-      "multi_missed": {
-        "label": "2x Missed 📌",
-        "tag_segment": "2x"
-      },
       "key_info": {
         "label": "Key Info 🗝️",
         "tag_base": "#Custom::#KEY"
@@ -60,8 +60,7 @@
       "other": {
         "resources": [
           "Kaplan",
-          "True-Learn",
-          "NBOME"
+          "True-Learn"
         ],
         "tag_suffix": "Other"
       }

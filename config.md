@@ -69,7 +69,7 @@ Browser menu actions are hardcoded in `_browser_menu/loader.py`:
 
 ### `find_QIDs` (object)
 
-Used by `_browser_menu/modules/Find_QIDs/helper.py`.
+Used by `_browser_menu/helper.py`.
 
 - `QID_parent_tag` (string): primary parent tag for QID searches. If non-empty, query is `tag:re:{QID_parent_tag}::{qid}$`.
 - `UW_STEP` (boolean): if true, QID search uses `tag:re:#UWORLD::STEP::{qid}$`.
