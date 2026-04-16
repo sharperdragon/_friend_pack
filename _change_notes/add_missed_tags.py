@@ -12,12 +12,6 @@ from .config_manager import ConfigManager
 
 # ! ----------------------------- CONFIG SECTIONS -----------------------------
 CONFIG_SECTION = "add_missed_tags"
-LEGACY_CONFIG_SECTION = "tag_selected_notes_config"
-LEGACY_MODULE_CONFIG_SECTION = "add_tags"
-LEGACY_CONFIG_SECTIONS = [
-    LEGACY_CONFIG_SECTION,
-    LEGACY_MODULE_CONFIG_SECTION,
-]
 # ! -------------------------------------------------------------------------
 
 # ! ----------------------------- USER-TUNABLE CONSTANTS -----------------------------
@@ -40,9 +34,9 @@ DEFAULT_OTHER_RESOURCES = ["Kaplan", "True-Learn", "NBOME"]
 DEFAULT_KEY_TAG_BASE = "#Custom::#KEY"
 DEFAULT_CORRECT_GUESS_TAGS = ["#Custom::correct_marked"]
 DEFAULT_TEST_RANGE_BLOCK_SIZE = 25
+DEFAULT_INCLUDE_DAY_SEGMENT = True
 
 # ? Prompt/format behavior
-PROMPT_BEHAVIOR_BASE_ONLY = "base_only"
 PROMPT_STYLE_RANGE_THEN_NUMBER = "range_then_number"
 PROMPT_STYLE_NUMBER_ONLY = "number_only"
 
@@ -74,7 +68,6 @@ SUBSET_2_TAG = list(DEFAULT_NBME_BASE_TAGS)
 
 AMBOSS_TOP_LEVEL_NAME = DEFAULT_AMBOSS_LABEL
 AMBOSS_BASE_TAG = DEFAULT_AMBOSS_BASE_TAG
-AMBOSS_BLANK_BEHAVIOR = PROMPT_BEHAVIOR_BASE_ONLY
 AMBOSS_NUMBER_STYLE = PROMPT_STYLE_NUMBER_ONLY
 AMBOSS_REMOVE_FROM_OTHER_MENU = True
 
@@ -86,6 +79,7 @@ CORRECT_GUESS_TAGS = list(DEFAULT_CORRECT_GUESS_TAGS)
 TEST_RANGE_BLOCK_SIZE = DEFAULT_TEST_RANGE_BLOCK_SIZE
 DEFAULT_NBME_TAG_PREFIX_RUNTIME = DEFAULT_NBME_TAG_PREFIX
 DEFAULT_TEST_TAG_PREFIX_RUNTIME = DEFAULT_TEST_TAG_PREFIX
+INCLUDE_DAY_SEGMENT = DEFAULT_INCLUDE_DAY_SEGMENT
 
 MISSED_TAGS_MENU_LABEL = DEFAULT_MISSED_TAGS_MENU_LABEL
 MSG_NO_NOTES_SELECTED = DEFAULT_MSG_NO_NOTES_SELECTED
@@ -134,11 +128,6 @@ def _to_string_list(value: Any, fallback: list[str]) -> list[str]:
 def _to_text(value: Any, fallback: str) -> str:
     text = str(value).strip()
     return text or fallback
-
-
-def _to_optional_text(value: Any) -> str:
-    text = str(value).strip()
-    return text
 
 
 def _to_bool(value: Any, fallback: bool) -> bool:
@@ -208,7 +197,6 @@ def _reload_runtime_config() -> None:
     global SUBSET_2_TAG
     global AMBOSS_TOP_LEVEL_NAME
     global AMBOSS_BASE_TAG
-    global AMBOSS_BLANK_BEHAVIOR
     global AMBOSS_NUMBER_STYLE
     global AMBOSS_REMOVE_FROM_OTHER_MENU
     global MULTI_MISS_TAG
@@ -219,6 +207,7 @@ def _reload_runtime_config() -> None:
     global TEST_RANGE_BLOCK_SIZE
     global DEFAULT_NBME_TAG_PREFIX_RUNTIME
     global DEFAULT_TEST_TAG_PREFIX_RUNTIME
+    global INCLUDE_DAY_SEGMENT
     global MISSED_TAGS_MENU_LABEL
     global MSG_NO_NOTES_SELECTED
     global MSG_INVALID_TEST_NUMBER
@@ -229,25 +218,12 @@ def _reload_runtime_config() -> None:
     global PROMPT_TITLE_GENERIC
     global PROMPT_LABEL_GENERIC
 
-    legacy_cfg: dict[str, Any] = {}
-    for section_name in LEGACY_CONFIG_SECTIONS:
-        section_data = ConfigManager(section_name).load()
-        if isinstance(section_data, dict):
-            legacy_cfg = ConfigManager.deep_merge_dicts(legacy_cfg, section_data)
-
     section_cfg = ConfigManager(CONFIG_SECTION).load()
-    merged_cfg = ConfigManager.deep_merge_dicts(
-        legacy_cfg,
-        section_cfg if isinstance(section_cfg, dict) else {},
-    )
+    merged_cfg = section_cfg if isinstance(section_cfg, dict) else {}
 
     defaults_cfg = merged_cfg.get("defaults", {})
     if not isinstance(defaults_cfg, dict):
         defaults_cfg = {}
-
-    ui_cfg = merged_cfg.get("ui", {})
-    if not isinstance(ui_cfg, dict):
-        ui_cfg = {}
 
     actions_cfg = merged_cfg.get("actions", {})
     if not isinstance(actions_cfg, dict):
@@ -285,40 +261,33 @@ def _reload_runtime_config() -> None:
     if not isinstance(other_cfg, dict):
         other_cfg = {}
 
-    # Menu label:
-    # - Canonical: defaults.menu_label
-    # - Compat alias: ui.menu_label (wins when explicitly set)
-    defaults_menu_label = _to_text(
+    date_cfg = merged_cfg.get("date", {})
+    if not isinstance(date_cfg, dict):
+        date_cfg = {}
+
+    MISSED_TAGS_MENU_LABEL = _to_text(
         defaults_cfg.get("menu_label", DEFAULT_MISSED_TAGS_MENU_LABEL),
         DEFAULT_MISSED_TAGS_MENU_LABEL,
     )
-    ui_menu_label = _to_optional_text(ui_cfg.get("menu_label", merged_cfg.get("menu_label", "")))
-    MISSED_TAGS_MENU_LABEL = ui_menu_label or defaults_menu_label
 
     # Hardcoded by request: these remain code-only constants.
     MSG_NO_NOTES_SELECTED = DEFAULT_MSG_NO_NOTES_SELECTED
     MSG_INVALID_TEST_NUMBER = DEFAULT_MSG_INVALID_TEST_NUMBER
 
     ACTION_LABEL_BASE = _to_text(
-        base_cfg.get("label", ui_cfg.get("action_label_base", DEFAULT_ACTION_LABEL_BASE)),
+        base_cfg.get("label", DEFAULT_ACTION_LABEL_BASE),
         DEFAULT_ACTION_LABEL_BASE,
     )
     ACTION_LABEL_MULTI_MISSED = _to_text(
-        multi_missed_cfg.get(
-            "label",
-            ui_cfg.get("action_label_multi_missed", DEFAULT_ACTION_LABEL_MULTI_MISSED),
-        ),
+        multi_missed_cfg.get("label", DEFAULT_ACTION_LABEL_MULTI_MISSED),
         DEFAULT_ACTION_LABEL_MULTI_MISSED,
     )
     ACTION_LABEL_KEY_INFO = _to_text(
-        key_info_cfg.get("label", ui_cfg.get("action_label_key_info", DEFAULT_ACTION_LABEL_KEY_INFO)),
+        key_info_cfg.get("label", DEFAULT_ACTION_LABEL_KEY_INFO),
         DEFAULT_ACTION_LABEL_KEY_INFO,
     )
     ACTION_LABEL_CORRECT_GUESS = _to_text(
-        correct_guess_cfg.get(
-            "label",
-            ui_cfg.get("action_label_correct_guess", DEFAULT_ACTION_LABEL_CORRECT_GUESS),
-        ),
+        correct_guess_cfg.get("label", DEFAULT_ACTION_LABEL_CORRECT_GUESS),
         DEFAULT_ACTION_LABEL_CORRECT_GUESS,
     )
 
@@ -326,7 +295,7 @@ def _reload_runtime_config() -> None:
     PROMPT_LABEL_GENERIC = DEFAULT_PROMPT_LABEL_GENERIC
 
     MISSED_BASE_TAG = _to_string_list(
-        base_cfg.get("tags", merged_cfg.get("base_missed_tag", merged_cfg.get("missed_base_tag", []))),
+        base_cfg.get("tags", DEFAULT_BASE_MISSED_TAGS),
         fallback=DEFAULT_BASE_MISSED_TAGS,
     )
 
@@ -340,20 +309,20 @@ def _reload_runtime_config() -> None:
     )
 
     SUBSET_1_NAME = _to_text(
-        uworld_cfg.get("label", merged_cfg.get("subset_1_name", DEFAULT_UWORLD_LABEL)),
+        uworld_cfg.get("label", DEFAULT_UWORLD_LABEL),
         DEFAULT_UWORLD_LABEL,
     )
     SUBSET_1_TAG = _to_string_list(
-        uworld_cfg.get("base_tags", merged_cfg.get("subset_tag_1", merged_cfg.get("subset_1_tag", []))),
+        uworld_cfg.get("base_tags", [base_tag_path(DEFAULT_TEST_TAG_PREFIX_RUNTIME)]),
         fallback=[base_tag_path(DEFAULT_TEST_TAG_PREFIX_RUNTIME)],
     )
 
     SUBSET_2_NAME = _to_text(
-        nbme_cfg.get("label", merged_cfg.get("subset_2_name", DEFAULT_NBME_LABEL)),
+        nbme_cfg.get("label", DEFAULT_NBME_LABEL),
         DEFAULT_NBME_LABEL,
     )
     SUBSET_2_TAG = _to_string_list(
-        nbme_cfg.get("base_tags", merged_cfg.get("subset_tag_2", merged_cfg.get("subset_2_tag", []))),
+        nbme_cfg.get("base_tags", [base_tag_path(DEFAULT_NBME_TAG_PREFIX_RUNTIME)]),
         fallback=[base_tag_path(DEFAULT_NBME_TAG_PREFIX_RUNTIME)],
     )
 
@@ -364,10 +333,6 @@ def _reload_runtime_config() -> None:
     AMBOSS_BASE_TAG = _to_text(
         amboss_cfg.get("base_tag", DEFAULT_AMBOSS_BASE_TAG),
         DEFAULT_AMBOSS_BASE_TAG,
-    )
-    AMBOSS_BLANK_BEHAVIOR = _to_text(
-        amboss_cfg.get("blank_behavior", PROMPT_BEHAVIOR_BASE_ONLY),
-        PROMPT_BEHAVIOR_BASE_ONLY,
     )
     AMBOSS_NUMBER_STYLE = _to_text(
         amboss_cfg.get("number_style", PROMPT_STYLE_NUMBER_ONLY),
@@ -393,12 +358,8 @@ def _reload_runtime_config() -> None:
         fallback=DEFAULT_CORRECT_GUESS_TAGS,
     )
 
-    legacy_other_menu = merged_cfg.get("other_menu", {})
-    if not isinstance(legacy_other_menu, dict):
-        legacy_other_menu = {}
-
     OTHER_RESOURCES = _to_string_list(
-        other_cfg.get("resources", legacy_other_menu.get("resources", DEFAULT_OTHER_RESOURCES)),
+        other_cfg.get("resources", DEFAULT_OTHER_RESOURCES),
         fallback=DEFAULT_OTHER_RESOURCES,
     )
     OTHER_SUFFIX = _to_text(
@@ -410,6 +371,12 @@ def _reload_runtime_config() -> None:
         uworld_cfg.get("test_range_block_size", DEFAULT_TEST_RANGE_BLOCK_SIZE),
         DEFAULT_TEST_RANGE_BLOCK_SIZE,
     )
+
+    include_day_segment_raw = date_cfg.get(
+        "include_day_segment",
+        DEFAULT_INCLUDE_DAY_SEGMENT,
+    )
+    INCLUDE_DAY_SEGMENT = _to_bool(include_day_segment_raw, DEFAULT_INCLUDE_DAY_SEGMENT)
 
     ENABLED_Q_BANKS = _normalize_q_banks(
         merged_cfg.get("Q_Banks", DEFAULT_Q_BANKS),
@@ -423,7 +390,11 @@ _reload_runtime_config()
 def get_missed_month_tag() -> str:
     now = datetime.now()
     base = MISSED_BASE_TAG[0] if MISSED_BASE_TAG else DEFAULT_BASE_MISSED_TAGS[0]
-    return f"{base}::{now.year}::{now.strftime('%m')}_{now.strftime('%B')}"
+    month_segment = f"{now.strftime('%m')}_{now.strftime('%B')}"
+    tag = f"{base}::{now.year}::{month_segment}"
+    if INCLUDE_DAY_SEGMENT:
+        tag = f"{tag}::{now.strftime('%d')}"
+    return tag
 
 
 def get_key_info_tag() -> str:
@@ -580,7 +551,6 @@ def add_amboss_tag(browser, menu):
             action_key=ACTION_KEY_AMBOSS_TEST_PROMPT,
             title=PROMPT_TITLE_AMBOSS,
             label=PROMPT_LABEL_GENERIC,
-            blank_behavior=AMBOSS_BLANK_BEHAVIOR,
             number_style=AMBOSS_NUMBER_STYLE,
         )
     )
@@ -612,7 +582,6 @@ def add_uworld_tags(browser, menu):
                 action_key=ACTION_KEY_UWORLD_TEST_PROMPT,
                 title=PROMPT_TITLE_UWORLD,
                 label=PROMPT_LABEL_GENERIC,
-                blank_behavior=PROMPT_BEHAVIOR_BASE_ONLY,
                 number_style=PROMPT_STYLE_RANGE_THEN_NUMBER,
             )
         )
@@ -636,7 +605,6 @@ def add_other_resources_actions(browser, menu):
                 action_key=ACTION_KEY_TRUE_LEARN_TEST_PROMPT,
                 title=PROMPT_TITLE_TRUE_LEARN,
                 label=PROMPT_LABEL_GENERIC,
-                blank_behavior=PROMPT_BEHAVIOR_BASE_ONLY,
                 number_style=PROMPT_STYLE_NUMBER_ONLY,
             )
             action.triggered.connect(handler)
@@ -663,7 +631,6 @@ def make_test_prompt_handler(
     action_key: str,
     title: str | None = None,
     label: str | None = None,
-    blank_behavior: str = PROMPT_BEHAVIOR_BASE_ONLY,
     number_style: str = PROMPT_STYLE_RANGE_THEN_NUMBER,
 ):
     """
@@ -671,8 +638,7 @@ def make_test_prompt_handler(
       - "range_then_number" -> base_tag::<lower-upper>::NN
       - "number_only" -> base_tag::NN
 
-    blank_behavior is accepted for compatibility. Blank and non-numeric values
-    resolve to base_tag in current behavior.
+    Blank and non-numeric values resolve to base_tag.
     """
 
     def on_trigger():
@@ -690,18 +656,12 @@ def make_test_prompt_handler(
         )
 
         if test_num == "":
-            if blank_behavior == PROMPT_BEHAVIOR_BASE_ONLY:
-                formatted_tag = f"{base_tag}"
-            else:
-                formatted_tag = f"{base_tag}"
+            formatted_tag = f"{base_tag}"
         else:
             try:
                 test_number = int(test_num)
             except ValueError:
-                if blank_behavior == PROMPT_BEHAVIOR_BASE_ONLY:
-                    formatted_tag = f"{base_tag}"
-                else:
-                    formatted_tag = f"{base_tag}"
+                formatted_tag = f"{base_tag}"
             else:
                 if normalized_number_style == PROMPT_STYLE_RANGE_THEN_NUMBER:
                     lower = ((test_number - 1) // TEST_RANGE_BLOCK_SIZE) * TEST_RANGE_BLOCK_SIZE + 1

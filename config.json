@@ -3,16 +3,23 @@
     "submenu_label": "Custom Tags",
     "presets": [
       {
-        "label": "Needs Review",
+        "label": " 📝 Needs Review",
         "tags": [
           "#Custom::Review"
         ]
+      },
+      {
+        "label": "Imaging 🩻",
+        "tags": ["#Custom::Imaging"]
       }
     ]
   },
   "add_missed_tags": {
     "defaults": {
       "menu_label": "Missed Tags ❌"
+    },
+    "date": {
+      "include_day_segment": true
     },
     "actions": {
       "base": {
@@ -43,7 +50,6 @@
       "amboss": {
         "label": "🦠 Amboss",
         "base_tag": "##Missed-Qs::Amboss",
-        "blank_behavior": "base_only",
         "number_style": "number_only",
         "remove_from_other_menu": true
       },
@@ -78,7 +84,7 @@
     "UW_STEP": false,
     "UW_COMLEX": false,
     "QID_parent_tag": "",
-    "TAG_PREFIX": "#UWorld::\\w+::",
+    "TAG_PREFIX": "\\bUWorld::\\w+::",
     "MISSED_tag": "##Missed-Qs",
     "default_missed_only": false
   }

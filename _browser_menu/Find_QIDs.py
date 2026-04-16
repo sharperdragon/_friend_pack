@@ -215,6 +215,20 @@ class _FQIDS_QIDInput(QDialog):
     def text(self) -> str:
         return self.edit.toPlainText().strip()
 
+
+def _extract_qid_from_query_tail(tag_query: str) -> str:
+    """
+    Extract trailing QID from query forms like:
+    - tag:re:<parent>::123$
+    - tag:<parent>::123
+    """
+    parts = str(tag_query).strip().rsplit("::", 1)
+    if len(parts) != 2:
+        return "?"
+    candidate = parts[1].rstrip("$")
+    return candidate if candidate.isdigit() else "?"
+
+
 class _FQIDS_Stepper(QDialog):
     """Step through QIDs one-by-one; with jump, previous, and next."""
     def __init__(self, browser, tags: List[str], parent: Optional[QWidget] = None):
@@ -226,13 +240,8 @@ class _FQIDS_Stepper(QDialog):
         self.i = -1
         self.setWindowTitle("Find QIDs: 1-by-1")
 
-        # Extract plain QIDs from tag strings (digits at end)
-        import re as _re
-        _pat = _re.compile(r"(\d+)$")
-        self.qids = []
-        for t in self.tags:
-            m = _pat.search(t)
-            self.qids.append(m.group(1) if m else "?")
+        # Extract plain QIDs from tag-query tails.
+        self.qids = [_extract_qid_from_query_tail(t) for t in self.tags]
         # Fast lookup QID -> first index
         self.qid_to_idx = {q: idx for idx, q in enumerate(self.qids) if q != "?"}
 

@@ -6,7 +6,7 @@ This is the top-level config for `_friend_pack`.
 
 ### `add_custom_tags` (object)
 
-Used by `_change_notes/modules/add_custom_tags.py`.
+Used by `_change_notes/add_custom_tags.py`.
 
 - `submenu_label` (string)
 - `presets` (array of objects)
@@ -18,9 +18,10 @@ Preset object:
 
 ### `add_missed_tags` (object)
 
-Used by `_change_notes/modules/add_missed_tags.py`.
+Used by `_change_notes/add_missed_tags.py`.
 
 - `defaults.menu_label` (string)
+- `date.include_day_segment` (boolean)
 - `actions` (object)
 - `Q_Banks` (array of strings)
 
@@ -28,16 +29,17 @@ Used by `_change_notes/modules/add_missed_tags.py`.
 
 - `menu_label` (string): canonical default menu label source.
 
-Compatibility alias:
+`date` keys:
 
-- Runtime still accepts `ui.menu_label` from user overrides for backward compatibility.
+- `include_day_segment` (boolean): when `true`, missed date tag becomes
+  `##Missed-Qs::YYYY::MM_Month::DD`; when `false`, it remains `##Missed-Qs::YYYY::MM_Month`.
 
 `actions` keys:
 
 - `base` (`label`, `tags`)
 - `uworld` (`label`, `base_tags`, `default_tag_prefix`, `test_range_block_size`)
 - `nbme` (`label`, `base_tags`, `default_tag_prefix`)
-- `amboss` (`label`, `base_tag`, `blank_behavior`, `number_style`, `remove_from_other_menu`)
+- `amboss` (`label`, `base_tag`, `number_style`, `remove_from_other_menu`)
 - `multi_missed` (`label`, `tag_segment`)
 - `key_info` (`label`, `tag_base`)
 - `correct_guess` (`label`, `tags`)
@@ -81,14 +83,8 @@ Used by `_browser_menu/helper.py`.
 - If both toggles are true and `QID_parent_tag` is empty, `UW_STEP` takes priority.
 - `QID_parent_tag` and `TAG_PREFIX` accept optional `tag:`/`tag:re:` prefixes and are normalized to exactly one `::{qid}` separator.
 
-## Legacy Compatibility
-
-- `find_QIDs` is the canonical section, but Find QIDs still accepts legacy flat keys.
-- Legacy `MISSED_FILTER` / `MISSED_FILTER_TAG` values are normalized to raw `MISSED_tag`.
-- `add_missed_tags` runtime still merges legacy sections `tag_selected_notes_config` and `add_tags`.
-
 ## Notes
 
 - Runtime merges this default config with profile overrides written through Anki's addon manager.
 - The config window writes the full effective config back to the addon config bucket.
-- Root `config.json` is the single source of shipped defaults.
+- Root `config.json` is the single source of shipped defaults and canonical schema.

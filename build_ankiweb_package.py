@@ -16,16 +16,24 @@ OVERWRITE_EXISTING_OUTPUT = True
 EXCLUDED_DIR_NAMES = {
     "__pycache__",
     ".git",
+    ".idea",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
     ".vscode",
+    ".venv",
     "dist",
     "build",
+    "typings",
 }
 EXCLUDED_FILE_NAMES = {
     ".DS_Store",
     "Thumbs.db",
+    "Install_Friend_Pack.command",
     "_browser_menu_debug.log",
     "build_ankiweb_package.py",
     "meta.json",
+    "pyrightconfig.json",
 }
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
 EXCLUDED_GLOB_PATTERNS = {

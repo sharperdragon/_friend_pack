@@ -29,13 +29,10 @@ CONFIG_KEY_TAG_PREFIX = "TAG_PREFIX"
 CONFIG_KEY_MISSED_TAG = "MISSED_tag"
 CONFIG_KEY_DEFAULT_MISSED_ONLY = "default_missed_only"
 
-LEGACY_CONFIG_KEY_MISSED_FILTER = "MISSED_FILTER"
-LEGACY_CONFIG_KEY_MISSED_FILTER_TAG = "MISSED_FILTER_TAG"
-
 DEFAULT_UW_STEP = False
 DEFAULT_UW_COMLEX = False
 DEFAULT_QID_PARENT_TAG = ""
-DEFAULT_TAG_PREFIX = "#UWorld::\\w+::"
+DEFAULT_TAG_PREFIX = r"\bUWorld::\w+::"
 DEFAULT_MISSED_TAG = "##Missed-Qs"
 DEFAULT_MISSED_ONLY = False
 
@@ -47,6 +44,12 @@ COLLECTION_FIND_NOTES_METHODS = ("find_notes", "findNotes")
 
 # When lookup API is unavailable/unknown, avoid misleading "No cards found" warnings.
 SUPPRESS_MISSING_TOOLTIP_ON_UNKNOWN_LOOKUP = True
+
+# Legacy-to-current normalization for the UWorld fallback expression.
+LEGACY_TAG_PREFIX_MIGRATIONS = {
+    "#UWorld::\\w+": r"\bUWorld::\w+",
+    "#UWORLD::\\w+": r"\bUWorld::\w+",
+}
 
 # ! Do not edit: fallback-only local defaults when root config access is unavailable
 _DEFAULTS: Dict[str, Any] = {
@@ -62,17 +65,6 @@ _DEFAULTS: Dict[str, Any] = {
 # ======================================================================
 # Config helpers
 # ======================================================================
-def _addon_root_key() -> str:
-    """
-    Resolve the root package name Anki uses for this add-on’s config bucket.
-    Works in both nested and standalone import layouts.
-    """
-    pkg = __package__ or ""
-    if pkg:
-        return pkg.split(".", 1)[0]
-    return "_friend_pack"
-
-
 def _normalize_missed_tag(value: Any) -> str:
     """
     Normalize MISSED_tag as a raw parent tag.
@@ -113,6 +105,11 @@ def normalize_parent_tag_expr(value: Any, fallback: str = "") -> str:
     return text
 
 
+def _normalize_legacy_tag_prefix(value: str) -> str:
+    """Map historical TAG_PREFIX values to the current canonical regex parent."""
+    return LEGACY_TAG_PREFIX_MIGRATIONS.get(value, value)
+
+
 def _ensure_regex_end_anchor(pattern: str) -> str:
     """Guarantee a single trailing regex end-anchor for QID tag queries."""
     text = pattern.rstrip()
@@ -148,18 +145,6 @@ def _load_effective_root_config() -> Dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-def _load_direct_config_bucket() -> Dict[str, Any]:
-    """
-    Fallback reader when root ConfigManager import is unavailable.
-    """
-    try:
-        root = _addon_root_key()
-        data = mw.addonManager.getConfig(root) or {}
-    except Exception:
-        return {}
-    return data if isinstance(data, dict) else {}
-
-
 def get_config() -> Dict[str, Any]:
     """
     Load config from Anki, merge with defaults, normalize fields.
@@ -172,45 +157,35 @@ def get_config() -> Dict[str, Any]:
       - TAG_PREFIX (str, raw parent expression)
       - MISSED_tag (raw tag text)
     """
-    # Primary path: root defaults + user overrides via root ConfigManager.
     source = _load_effective_root_config()
-    if not source:
-        # Compatibility fallback for unusual import/runtime failures.
-        source = _load_direct_config_bucket()
-
     section_cfg = source.get(CONFIG_SECTION_FIND_QIDS, {})
-    if isinstance(section_cfg, dict):
-        # Nested section wins over legacy top-level keys when both are present.
-        source = {**source, **section_cfg}
-    else:
-        source = dict(source)
-
-    raw_missed_tag = source.get(CONFIG_KEY_MISSED_TAG)
-    if raw_missed_tag is None:
-        raw_missed_tag = source.get(LEGACY_CONFIG_KEY_MISSED_FILTER)
-    if raw_missed_tag is None:
-        raw_missed_tag = source.get(LEGACY_CONFIG_KEY_MISSED_FILTER_TAG)
+    if not isinstance(section_cfg, dict):
+        section_cfg = {}
 
     cfg = dict(_DEFAULTS)
     cfg[CONFIG_KEY_UW_STEP] = _normalize_bool(
-        source.get(CONFIG_KEY_UW_STEP, _DEFAULTS[CONFIG_KEY_UW_STEP]),
+        section_cfg.get(CONFIG_KEY_UW_STEP, _DEFAULTS[CONFIG_KEY_UW_STEP]),
         fallback=DEFAULT_UW_STEP,
     )
     cfg[CONFIG_KEY_UW_COMLEX] = _normalize_bool(
-        source.get(CONFIG_KEY_UW_COMLEX, _DEFAULTS[CONFIG_KEY_UW_COMLEX]),
+        section_cfg.get(CONFIG_KEY_UW_COMLEX, _DEFAULTS[CONFIG_KEY_UW_COMLEX]),
         fallback=DEFAULT_UW_COMLEX,
     )
     cfg[CONFIG_KEY_QID_PARENT_TAG] = normalize_parent_tag_expr(
-        source.get(CONFIG_KEY_QID_PARENT_TAG, _DEFAULTS[CONFIG_KEY_QID_PARENT_TAG]),
+        section_cfg.get(CONFIG_KEY_QID_PARENT_TAG, _DEFAULTS[CONFIG_KEY_QID_PARENT_TAG]),
         fallback=DEFAULT_QID_PARENT_TAG,
     )
-    cfg[CONFIG_KEY_TAG_PREFIX] = normalize_parent_tag_expr(
-        source.get(CONFIG_KEY_TAG_PREFIX, _DEFAULTS[CONFIG_KEY_TAG_PREFIX]),
-        fallback=DEFAULT_TAG_PREFIX,
+    cfg[CONFIG_KEY_TAG_PREFIX] = _normalize_legacy_tag_prefix(
+        normalize_parent_tag_expr(
+            section_cfg.get(CONFIG_KEY_TAG_PREFIX, _DEFAULTS[CONFIG_KEY_TAG_PREFIX]),
+            fallback=DEFAULT_TAG_PREFIX,
+        )
     )
-    cfg[CONFIG_KEY_MISSED_TAG] = _normalize_missed_tag(raw_missed_tag)
+    cfg[CONFIG_KEY_MISSED_TAG] = _normalize_missed_tag(
+        section_cfg.get(CONFIG_KEY_MISSED_TAG, _DEFAULTS[CONFIG_KEY_MISSED_TAG])
+    )
     cfg[CONFIG_KEY_DEFAULT_MISSED_ONLY] = _normalize_bool(
-        source.get(
+        section_cfg.get(
             CONFIG_KEY_DEFAULT_MISSED_ONLY,
             _DEFAULTS[CONFIG_KEY_DEFAULT_MISSED_ONLY],
         ),

@@ -38,7 +38,7 @@ FIND_QIDS_DEFAULT_CONFIG: dict[str, Any] = {
     "UW_STEP": False,
     "UW_COMLEX": False,
     "QID_parent_tag": "",
-    "TAG_PREFIX": "#UWorld::\\w+::",
+    "TAG_PREFIX": "\\bUWorld::\\w+::",
     "MISSED_tag": "##Missed-Qs",
     "default_missed_only": False,
 }
@@ -48,11 +48,6 @@ MODULE_CONFIG_KEYS: dict[str, tuple[str, ...]] = {
 }
 MODULE_CONFIG_SECTIONS: dict[str, str] = {
     FIND_QIDS_MODULE_NAME: FIND_QIDS_ROOT_SECTION,
-}
-MODULE_CONFIG_LEGACY_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
-    FIND_QIDS_MODULE_NAME: {
-        "MISSED_tag": ("MISSED_FILTER", "MISSED_FILTER_TAG"),
-    },
 }
 MODULE_CONFIG_DEFAULTS: dict[str, dict[str, Any]] = {
     FIND_QIDS_MODULE_NAME: FIND_QIDS_DEFAULT_CONFIG,
@@ -70,6 +65,8 @@ def _normalize_module_value(module_name: str, key: str, value: Any) -> Any:
         elif text.startswith("tag:"):
             text = text[len("tag:"):]
         text = text.strip().rstrip(":").strip()
+        if key == "TAG_PREFIX" and text in {"#UWorld::\\w+", "#UWORLD::\\w+"}:
+            text = "\\bUWorld::\\w+"
         if key == "QID_parent_tag":
             return text
         return text or FIND_QIDS_DEFAULT_CONFIG["TAG_PREFIX"].rstrip(":")
@@ -119,10 +116,6 @@ def _module_section(module_name: str) -> Optional[str]:
     return MODULE_CONFIG_SECTIONS.get(module_name)
 
 
-def _module_aliases(module_name: str) -> dict[str, tuple[str, ...]]:
-    return MODULE_CONFIG_LEGACY_ALIASES.get(module_name, {})
-
-
 def _read_root_default_config() -> dict[str, Any]:
     if RootConfigManager is None:
         return {}
@@ -148,7 +141,6 @@ def _read_root_effective_config() -> dict[str, Any]:
 def _extract_module_config(source: dict[str, Any], module_name: str) -> dict[str, Any]:
     keys = _module_keys(module_name)
     section_name = _module_section(module_name)
-    aliases = _module_aliases(module_name)
     defaults = _module_default_config(module_name)
     if not keys:
         return defaults
@@ -163,17 +155,6 @@ def _extract_module_config(source: dict[str, Any], module_name: str) -> dict[str
     for key in keys:
         if key in section_cfg:
             result[key] = _normalize_module_value(module_name, key, section_cfg[key])
-        elif key in source:
-            # Legacy fallback for old flat configs.
-            result[key] = _normalize_module_value(module_name, key, source[key])
-        else:
-            for alias_key in aliases.get(key, ()):
-                if alias_key in section_cfg:
-                    result[key] = _normalize_module_value(module_name, key, section_cfg[alias_key])
-                    break
-                if alias_key in source:
-                    result[key] = _normalize_module_value(module_name, key, source[alias_key])
-                    break
     return result
 
 

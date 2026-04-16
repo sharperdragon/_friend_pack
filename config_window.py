@@ -252,7 +252,6 @@ class FriendPackConfigDialog(QDialog):
                     if amboss is not None:
                         expect_string(amboss, "label", "add_missed_tags.actions.amboss.label")
                         expect_string(amboss, "base_tag", "add_missed_tags.actions.amboss.base_tag")
-                        expect_string(amboss, "blank_behavior", "add_missed_tags.actions.amboss.blank_behavior")
                         expect_string(amboss, "number_style", "add_missed_tags.actions.amboss.number_style")
                         expect_bool(amboss, "remove_from_other_menu", "add_missed_tags.actions.amboss.remove_from_other_menu")
 
@@ -280,6 +279,19 @@ class FriendPackConfigDialog(QDialog):
 
             if "Q_Banks" in add_missed_tags:
                 expect_string_list(add_missed_tags["Q_Banks"], "add_missed_tags.Q_Banks")
+
+            date_cfg = add_missed_tags.get("date")
+            if date_cfg is not None:
+                if not isinstance(date_cfg, dict):
+                    errors.append(
+                        f"Invalid `add_missed_tags.date`: expected object, got {self._type_name(date_cfg)}."
+                    )
+                else:
+                    expect_bool(
+                        date_cfg,
+                        "include_day_segment",
+                        "add_missed_tags.date.include_day_segment",
+                    )
 
         browser_menu = section_dict("browser_menu")
         if browser_menu is not None:

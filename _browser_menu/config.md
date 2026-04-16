@@ -33,11 +33,6 @@ Normalization for `QID_parent_tag` and `TAG_PREFIX`:
 - Trailing `:` / `::` are accepted and normalized.
 - Query builder always emits exactly one `::{qid}` separator.
 
-## Legacy Key Support
-
-- Legacy `MISSED_FILTER` and `MISSED_FILTER_TAG` values are still accepted.
-- Legacy values using `tag:` / `tag:re:` prefixes are normalized to raw `MISSED_tag` format.
-
 ## Defaults
 
 ```json
@@ -45,7 +40,7 @@ Normalization for `QID_parent_tag` and `TAG_PREFIX`:
   "QID_parent_tag": "",
   "UW_STEP": false,
   "UW_COMLEX": false,
-  "TAG_PREFIX": "#UWorld::\\w+::",
+  "TAG_PREFIX": "\\bUWorld::\\w+::",
   "MISSED_tag": "##Missed-Qs",
   "default_missed_only": false
 }

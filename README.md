@@ -3,7 +3,7 @@
 Friend Pack is a bundled Anki add-on that provides two related workflow tools in a single package:
 
 - **custom Browser menu actions** for question-bank ID searching
-- **custom right-click note-tagging actions** for selected notes in the Browser
+- **custom right-click menu note-tagging actions** for selected notes in the Browser
 
 It is intended for users who organize their Anki workflow around **structured tags**, especially users who work with question-bank-derived note sets and want faster ways to search by QID or apply study-state tags without repetitive manual editing.
 
