@@ -1,110 +1,120 @@
-# _friend_pack
+# Friend Pack
 
-`_friend_pack` is a local Anki add-on folder that bundles two custom modules in one package:
+Friend Pack is a bundled Anki add-on that provides two related workflow tools in a single package:
 
-- `_browser_menu`: adds custom actions inside the Browser menu.
-- `_change_notes`: adds context-menu actions for tagging selected notes.
+- **custom Browser menu actions** for question-bank ID searching
+- **custom right-click note-tagging actions** for selected notes in the Browser
 
-## What To Do With This Folder
+It is intended for users who organize their Anki workflow around **structured tags**, especially users who work with question-bank-derived note sets and want faster ways to search by QID or apply study-state tags without repetitive manual editing.
 
-Put this folder directly inside Anki's `addons21` directory.
+Rather than being a general-purpose add-on for every Anki user, Friend Pack is best understood as a **tag-driven workflow utility**. It is most useful when your notes already follow a reasonably consistent tagging system, or when you are willing to customize the default configuration to fit your own structure.
 
-Important:
+---
 
-- Keep the folder name exactly `_friend_pack`.
-- Do not nest it as `_friend_pack/_friend_pack`.
+## What This Add-on Does
 
-## Install Steps
+Friend Pack combines two primary features into one add-on to maximize efficiency and studying:
 
-1. Close Anki.
-2. If on macOS, double-click `Install_Friend_Pack.command` (inside this folder).
-3. Start Anki again.
+### 1. Browser Menu Tools
 
-## Publish On AnkiWeb
+Friend Pack adds a custom section to the **Anki Browser menu**.  
+These tools are designed to help you search notes by question-bank IDs or related tag patterns.
 
-1. In VSCode, open `build_ankiweb_package.py`.
-2. Click **Run Python File** (top-right play button in the editor).
-3. Upload the generated `dist/_friend_pack.ankiaddon` file to AnkiWeb.
+This is useful when your notes contain tags derived from sources such as:
 
-The build script creates a clean upload package with files at archive root
-(no extra `_friend_pack/` parent folder), and excludes local artifacts like
-`__pycache__`, `.pyc`, `.DS_Store`, and `_browser_menu_debug.log`.
+- UWorld
+- NBME
+- Amboss
+- other Q-bank or resource-specific tagging systems
 
-## Publish Readiness Checklist
+Instead of manually building tag searches in the Browser every time, the add-on provides menu actions that can run those searches more quickly.
 
-Before uploading:
+### 2. Right-Click Tagging Tools for Selected Notes
 
-1. Open Anki and confirm the add-on is enabled.
-2. Open `Tools -> Friend Pack Config` and verify the config window opens/saves.
-3. Open Browser and confirm `Custom` menu includes:
-   - `Search all`
-   - `Search 1-by-1`
-   - `QID search settings`
-4. In Browser, right-click selected notes and confirm:
-   - `Missed Tags ❌` actions work
-   - `Custom Tags` presets apply tags
-5. Build package from VSCode and verify `dist/_friend_pack.ankiaddon` is newly created.
+Friend Pack also adds **context-menu actions** when you right-click selected notes in the Browser.
 
-If all checks pass, it is ready to publish.
+These actions let you apply predefined tags to one or more selected notes. Depending on your configuration, this can support workflows such as:
 
-## Share As A Download (One-Click Install)
+- tagging missed questions
+- tagging repeated misses
+- tagging notes for later review
+- tagging notes as key information
+- tagging notes based on custom personal study categories
 
-For friends on macOS:
+The goal is to reduce repetitive manual tagging and make it easier to keep your notes organized during question review.
 
-1. Share a zip that includes this `_friend_pack` folder as-is.
-2. They unzip into Downloads.
-3. They open the unzipped `_friend_pack` folder.
-4. They double-click `Install_Friend_Pack.command`.
-5. The installer copies `_friend_pack` into Anki's `addons21` folder automatically.
+---
 
-Manual fallback (all platforms):
+## Who It Is For
 
-- Copy `_friend_pack` directly into `addons21`.
+Friend Pack is most appropriate for users who already think about their Anki workflow in terms of **tag structure**, not just decks or filtered decks.
 
-Typical `addons21` paths:
+It is especially useful for:
 
-- macOS: `~/Library/Application Support/Anki2/addons21`
-- Windows: `%APPDATA%\Anki2\addons21`
-- Linux: `~/.local/share/Anki2/addons21`
+- users who organize Anki notes or cards using custom tag workflows
+- users who search question-bank IDs in the Browser
+- users who want faster right-click actions for note tagging
+- users who maintain a consistent naming pattern for tags
+- users who are comfortable editing add-on settings to match their own workflow
 
-After install, the final folder should look like:
+This add-on may be a good fit if you regularly do things like:
 
-- `.../addons21/_friend_pack/__init__.py`
+- search for notes linked to a specific question ID
+- tag notes as missed after reviewing question blocks
+- add custom review-state tags to selected notes
+- rely on tag hierarchies to organize study material
 
-## First-Run Check
+This add-on may **not** be a good fit if:
 
-After restarting Anki:
+- you do not use tags heavily
+- your workflow depends mostly on decks alone
+- you want a plug-and-play add-on with no configuration
+- your note tags are highly inconsistent and you do not want to adjust them
 
-1. Open `Tools`.
-2. Click `Friend Pack Config`.
-3. Open the Browser and verify custom menu actions appear.
-4. Right-click selected notes in Browser to verify tagging actions appear.
+---
 
-## Configuration
+## Main Features
 
-Use `Tools -> Friend Pack Config` to edit top-level settings.
+### Browser Menu Features
 
-Files at the root:
+- Adds a custom top-level menu in the Anki Browser
+- Supports question-bank ID style searching
+- Can be configured to use different tag roots or tag patterns
+- Includes settings related to QID search behavior
 
-- `config.json`: default config schema.
-- `config.md`: key reference shown in config window.
-- `config_manager.py`: loads/merges/saves config.
-- `config_window.py`: config UI and menu registration.
+### Note Tagging Features
 
-## Updating This Add-on
+- Adds right-click tagging actions for selected notes in the Browser
+- Supports predefined tag actions instead of manual tag typing
+- Can be configured for custom label/tag combinations
+- Supports workflows built around missed-question tagging and custom review tags
 
-To update from a newer `_friend_pack`:
+### Configuration Features
 
-1. Close Anki.
-2. Run `Install_Friend_Pack.command` from the new download (macOS), or replace folder contents manually.
+- Includes a built-in configuration window
+- Ships with default settings in `config.json`
+- Stores user-specific overrides through Anki’s config system
+- Allows adaptation to different tag structures without directly rewriting module logic
+
+---
+
+## Installation
+
+Friend Pack can be installed either as a local add-on folder or as a packaged `.ankiaddon` file.
+
+---
+
+### Option 1: Local Folder Install
+
+Use this method if you are manually managing the add-on source folder yourself.
+
+#### Steps
+
+1. Close Anki completely.
+2. Copy the `_friend_pack` folder directly into your Anki `addons21` folder.
 3. Reopen Anki.
 
-Your profile-level overrides saved by Anki are preserved unless you clear them.
+The final folder structure should look like this:
 
-## Troubleshooting
-
-- If `Friend Pack Config` is missing: restart Anki and confirm folder location/name.
-- If actions do not appear: ensure notes are selected where required.
-- If config save fails: verify `config.json` contains valid JSON.
-- If install seems ignored: check for accidental nested folder structure.
-- If VSCode diagnostics look stale after edits: run `Pylance: Restart Language Server`.
+```text
+.../addons21/_friend_pack/__init__.py
