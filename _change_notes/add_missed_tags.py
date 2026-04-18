@@ -1,14 +1,13 @@
 # pyright: reportMissingImports=false
 from __future__ import annotations
 
-import re
 from datetime import datetime
 from typing import Any
 
 from aqt.qt import QAction, QInputDialog, QMenu
 from aqt.utils import showInfo, tooltip
 
-from .config_manager import ConfigManager
+from ..utils.config_manager import ConfigManager
 
 # ! ----------------------------- CONFIG SECTIONS -----------------------------
 CONFIG_SECTION = "add_missed_tags"
@@ -16,12 +15,12 @@ CONFIG_SECTION = "add_missed_tags"
 
 # ! ----------------------------- USER-TUNABLE CONSTANTS -----------------------------
 # ? Base/scaffold defaults
-DEFAULT_BASE_MISSED_TAGS = ["##Missed-Qs"]
+DEFAULT_PRIMARY_MISSED_TAG = "##Missed-Qs"
+DEFAULT_BASE_MISSED_TAGS = [DEFAULT_PRIMARY_MISSED_TAG]
 DEFAULT_Q_BANKS = ["UWORLD", "NBME", "AMBOSS"]
 DEFAULT_TEST_TAG_PREFIX = "UW_Tests"
 DEFAULT_NBME_TAG_PREFIX = "NBME"
 DEFAULT_MULTI_MISS_TAG = "2x"
-DEFAULT_OTHER_SUFFIX = "Other"
 
 # ? Action defaults
 DEFAULT_UWORLD_LABEL = "🛃UWorld"
@@ -30,8 +29,15 @@ DEFAULT_NBME_LABEL = "🧠 NBME"
 DEFAULT_NBME_BASE_TAGS = ["##Missed-Qs::NBME"]
 DEFAULT_AMBOSS_LABEL = "🦠 Amboss"
 DEFAULT_AMBOSS_BASE_TAG = "##Missed-Qs::Amboss"
-DEFAULT_OTHER_RESOURCES = ["Kaplan", "True-Learn", "NBOME"]
-DEFAULT_KEY_TAG_BASE = "#Custom::#KEY"
+DEFAULT_OTHER_SUBMENU_BOOL = True
+DEFAULT_OTHER_SUBMENU_LABEL = "Other"
+DEFAULT_OTHER_TAG_SEGMENT_GROUP = True
+DEFAULT_OTHER_GROUP_SEGMENT = "Other"
+DEFAULT_OTHER_ADD_MISSED_DATE_CONTEXT = False
+DEFAULT_OTHER_ACTIONS = [
+    {"menu_label": "Kaplan", "tag_segment": "Kaplan", "prompt": {"kind": "none"}},
+    {"menu_label": "True-learn", "tag_segment": "True-learn", "prompt": {"kind": "none"}},
+]
 DEFAULT_CORRECT_GUESS_TAGS = ["#Custom::correct_marked"]
 DEFAULT_TEST_RANGE_BLOCK_SIZE = 25
 DEFAULT_INCLUDE_DAY_SEGMENT = True
@@ -39,6 +45,10 @@ DEFAULT_INCLUDE_DAY_SEGMENT = True
 # ? Prompt/format behavior
 PROMPT_STYLE_RANGE_THEN_NUMBER = "range_then_number"
 PROMPT_STYLE_NUMBER_ONLY = "number_only"
+PROMPT_KIND_NONE = "none"
+PROMPT_KIND_NUMBER = "number"
+PROMPT_KIND_FORM = "form"
+DEFAULT_FORM_INPUT_ITEMS = ["Form"]
 
 # ? Hardcoded UI messages (intentionally not configurable)
 DEFAULT_MISSED_TAGS_MENU_LABEL = "Missed Tags ❌"
@@ -46,7 +56,6 @@ DEFAULT_MSG_NO_NOTES_SELECTED = "❌ No notes selected."
 DEFAULT_MSG_INVALID_TEST_NUMBER = "❌ Please enter a valid integer test number."
 DEFAULT_ACTION_LABEL_BASE = "♦️Base"
 DEFAULT_ACTION_LABEL_MULTI_MISSED = "2x Missed 📌"
-DEFAULT_ACTION_LABEL_KEY_INFO = "Key Info 🗝️"
 DEFAULT_ACTION_LABEL_CORRECT_GUESS = "Guessed Correct 🎫"
 DEFAULT_PROMPT_TITLE_GENERIC = "Enter Test Number"
 DEFAULT_PROMPT_LABEL_GENERIC = "Test #:"
@@ -55,10 +64,10 @@ PROMPT_TITLE_UWORLD = "Enter UWorld Test Number"
 PROMPT_TITLE_NBME_FORM = "Enter NBME Form"
 PROMPT_LABEL_NBME_FORM = "Form #:"
 PROMPT_TITLE_AMBOSS = "Enter Amboss Test Number"
-PROMPT_TITLE_TRUE_LEARN = "Enter True-Learn Test Number"
 
 # ? Runtime state (reloaded from config)
 MISSED_BASE_TAG = list(DEFAULT_BASE_MISSED_TAGS)
+PRIMARY_MISSED_TAG = DEFAULT_PRIMARY_MISSED_TAG
 ENABLED_Q_BANKS = {bank.upper() for bank in DEFAULT_Q_BANKS}
 
 SUBSET_1_NAME = DEFAULT_UWORLD_LABEL
@@ -68,51 +77,66 @@ SUBSET_2_TAG = list(DEFAULT_NBME_BASE_TAGS)
 
 AMBOSS_TOP_LEVEL_NAME = DEFAULT_AMBOSS_LABEL
 AMBOSS_BASE_TAG = DEFAULT_AMBOSS_BASE_TAG
+AMBOSS_PROMPT_KIND = PROMPT_KIND_NUMBER
 AMBOSS_NUMBER_STYLE = PROMPT_STYLE_NUMBER_ONLY
-AMBOSS_REMOVE_FROM_OTHER_MENU = True
+AMBOSS_PROMPT_RANGE_BLOCK_SIZE = DEFAULT_TEST_RANGE_BLOCK_SIZE
 
 MULTI_MISS_TAG = DEFAULT_MULTI_MISS_TAG
-OTHER_SUFFIX = DEFAULT_OTHER_SUFFIX
-OTHER_RESOURCES = list(DEFAULT_OTHER_RESOURCES)
-KEY_TAG_BASE = DEFAULT_KEY_TAG_BASE
+OTHER_SUBMENU_BOOL = DEFAULT_OTHER_SUBMENU_BOOL
+OTHER_SUBMENU_LABEL = DEFAULT_OTHER_SUBMENU_LABEL
+OTHER_CHILD_OF_PRIMARY = True
+OTHER_TAG_SEGMENT_GROUP = DEFAULT_OTHER_TAG_SEGMENT_GROUP
+OTHER_GROUP_SEGMENT = DEFAULT_OTHER_GROUP_SEGMENT
+OTHER_ACTIONS: list[dict[str, Any]] = [dict(item) for item in DEFAULT_OTHER_ACTIONS]
 CORRECT_GUESS_TAGS = list(DEFAULT_CORRECT_GUESS_TAGS)
 TEST_RANGE_BLOCK_SIZE = DEFAULT_TEST_RANGE_BLOCK_SIZE
 DEFAULT_NBME_TAG_PREFIX_RUNTIME = DEFAULT_NBME_TAG_PREFIX
 DEFAULT_TEST_TAG_PREFIX_RUNTIME = DEFAULT_TEST_TAG_PREFIX
 INCLUDE_DAY_SEGMENT = DEFAULT_INCLUDE_DAY_SEGMENT
+UWORLD_PROMPT_KIND = PROMPT_KIND_NUMBER
+UWORLD_NUMBER_STYLE = PROMPT_STYLE_RANGE_THEN_NUMBER
+UWORLD_RANGE_BLOCK_SIZE = DEFAULT_TEST_RANGE_BLOCK_SIZE
+UWORLD_PROMPT_INPUT_ITEMS = list(DEFAULT_FORM_INPUT_ITEMS)
+NBME_PROMPT_KIND = PROMPT_KIND_FORM
+NBME_NUMBER_STYLE = PROMPT_STYLE_NUMBER_ONLY
+NBME_RANGE_BLOCK_SIZE = DEFAULT_TEST_RANGE_BLOCK_SIZE
+NBME_PROMPT_INPUT_ITEMS = list(DEFAULT_FORM_INPUT_ITEMS)
+AMBOSS_PROMPT_INPUT_ITEMS = list(DEFAULT_FORM_INPUT_ITEMS)
 
 MISSED_TAGS_MENU_LABEL = DEFAULT_MISSED_TAGS_MENU_LABEL
 MSG_NO_NOTES_SELECTED = DEFAULT_MSG_NO_NOTES_SELECTED
 MSG_INVALID_TEST_NUMBER = DEFAULT_MSG_INVALID_TEST_NUMBER
 ACTION_LABEL_BASE = DEFAULT_ACTION_LABEL_BASE
 ACTION_LABEL_MULTI_MISSED = DEFAULT_ACTION_LABEL_MULTI_MISSED
-ACTION_LABEL_KEY_INFO = DEFAULT_ACTION_LABEL_KEY_INFO
 ACTION_LABEL_CORRECT_GUESS = DEFAULT_ACTION_LABEL_CORRECT_GUESS
 PROMPT_TITLE_GENERIC = DEFAULT_PROMPT_TITLE_GENERIC
 PROMPT_LABEL_GENERIC = DEFAULT_PROMPT_LABEL_GENERIC
 
 # ? Action keys
 ACTION_KEY_BASE_PLAIN = "base_plain"
-ACTION_KEY_KEY_INFO = "add_key_info_action"
 ACTION_KEY_CORRECT_GUESS = "correct_guess"
 ACTION_KEY_NBME_FORM_PROMPT = "nbme_form_prompt"
 ACTION_KEY_UWORLD_TEST_PROMPT = "uw_test_prompt"
 ACTION_KEY_AMBOSS_TEST_PROMPT = "amboss_test_prompt"
-ACTION_KEY_TRUE_LEARN_TEST_PROMPT = "true_learn_test_prompt"
 ACTION_KEY_OTHER_RESOURCE = "other_resource"
+ACTION_KEY_MULTI_MISSED = "multi_missed"
 
-# ? Exclude list for auto-month context
-EXCLUDE_AUTO_MISS = [
-    ACTION_KEY_KEY_INFO,
-    ACTION_KEY_BASE_PLAIN,
-    ACTION_KEY_CORRECT_GUESS,
-]
+DEFAULT_ACTION_MISSED_DATE_CONTEXT: dict[str, bool] = {
+    ACTION_KEY_BASE_PLAIN: False,
+    ACTION_KEY_UWORLD_TEST_PROMPT: True,
+    ACTION_KEY_NBME_FORM_PROMPT: True,
+    ACTION_KEY_AMBOSS_TEST_PROMPT: True,
+    ACTION_KEY_MULTI_MISSED: True,
+    ACTION_KEY_CORRECT_GUESS: False,
+    ACTION_KEY_OTHER_RESOURCE: True,
+}
+ACTION_MISSED_DATE_CONTEXT: dict[str, bool] = dict(DEFAULT_ACTION_MISSED_DATE_CONTEXT)
 # ! -------------------------------------------------------------------------
 
 
 # $ Compose a full Missed-Qs tag path with the base prefix
 def base_tag_path(*parts: str) -> str:
-    base = MISSED_BASE_TAG[0] if MISSED_BASE_TAG else DEFAULT_BASE_MISSED_TAGS[0]
+    base = PRIMARY_MISSED_TAG or DEFAULT_PRIMARY_MISSED_TAG
     return "::".join([base, *[part for part in parts if part]])
 
 
@@ -150,27 +174,223 @@ def _to_positive_int(value: Any, fallback: int) -> int:
     return parsed if parsed > 0 else fallback
 
 
-def _normalize_q_banks(raw: Any, fallback: list[str]) -> set[str]:
-    if isinstance(raw, list):
-        values = [str(v).strip().upper() for v in raw if str(v).strip()]
-        return set(values)
+def _to_prompt_kind(value: Any, fallback: str) -> str:
+    text = str(value).strip().lower()
+    if text in {PROMPT_KIND_NONE, PROMPT_KIND_NUMBER, PROMPT_KIND_FORM}:
+        return text
+    return fallback
 
-    if isinstance(raw, str) and raw.strip():
-        values = [chunk.strip().upper() for chunk in raw.split(",") if chunk.strip()]
-        return set(values)
 
-    return {str(v).strip().upper() for v in fallback if str(v).strip()}
+def _to_prompt_number_style(value: Any, fallback: str) -> str:
+    text = str(value).strip()
+    if text in {PROMPT_STYLE_RANGE_THEN_NUMBER, PROMPT_STYLE_NUMBER_ONLY}:
+        return text
+    return fallback
+
+
+def _split_tag_path(text: str) -> list[str]:
+    return [part.strip() for part in str(text).split("::") if part.strip()]
+
+
+def _tag_from_primary_segment(segment_path: str) -> str:
+    raw = str(segment_path or "").strip()
+    if not raw:
+        return PRIMARY_MISSED_TAG or DEFAULT_PRIMARY_MISSED_TAG
+    primary = PRIMARY_MISSED_TAG or DEFAULT_PRIMARY_MISSED_TAG
+    if raw == primary:
+        return primary
+    prefix = f"{primary}::"
+    if raw.startswith(prefix):
+        raw = raw[len(prefix):]
+    return base_tag_path(*_split_tag_path(raw))
+
+
+def _resolve_child_of_primary_flag(
+    action_cfg: dict[str, Any],
+    *,
+    default_child: bool,
+    legacy_absolute_keys: tuple[str, ...] = (),
+) -> bool:
+    if "child_of_primary_missed" in action_cfg:
+        return _to_bool(action_cfg.get("child_of_primary_missed"), default_child)
+    for key in legacy_absolute_keys:
+        if key in action_cfg:
+            return False
+    return default_child
+
+
+def _resolve_action_tags(
+    action_cfg: dict[str, Any],
+    *,
+    child_of_primary: bool,
+    default_segments: list[str],
+    default_absolute_tags: list[str],
+    legacy_segment_keys: tuple[str, ...] = (),
+    legacy_absolute_keys: tuple[str, ...] = (),
+) -> list[str]:
+    if child_of_primary:
+        segment_source: Any = action_cfg.get("tag_segment")
+        if segment_source is None:
+            segment_source = action_cfg.get("tag_segments")
+        if segment_source is None:
+            for key in legacy_segment_keys:
+                if key in action_cfg:
+                    segment_source = action_cfg.get(key)
+                    break
+        segments = _to_string_list(segment_source, fallback=default_segments)
+        return [_tag_from_primary_segment(seg) for seg in segments]
+
+    absolute_source: Any = action_cfg.get("absolute_tags")
+    if absolute_source is None:
+        for key in legacy_absolute_keys:
+            if key in action_cfg:
+                absolute_source = action_cfg.get(key)
+                break
+    return _to_string_list(absolute_source, fallback=default_absolute_tags)
+
+
+def _resolve_action_prompt(
+    action_cfg: dict[str, Any],
+    *,
+    default_kind: str,
+    default_number_style: str,
+    default_range_block_size: int,
+    default_form_input_items: list[str] | None = None,
+    legacy_number_style_keys: tuple[str, ...] = (),
+    legacy_range_block_size_keys: tuple[str, ...] = (),
+) -> tuple[str, str, int, list[str]]:
+    prompt_cfg = action_cfg.get("prompt", {})
+    if not isinstance(prompt_cfg, dict):
+        prompt_cfg = {}
+
+    fallback_form_input_items = (
+        list(default_form_input_items)
+        if isinstance(default_form_input_items, list) and default_form_input_items
+        else list(DEFAULT_FORM_INPUT_ITEMS)
+    )
+
+    kind = _to_prompt_kind(prompt_cfg.get("kind", default_kind), default_kind)
+
+    number_style_source: Any = prompt_cfg.get("number_style")
+    if number_style_source is None:
+        for key in legacy_number_style_keys:
+            if key in action_cfg:
+                number_style_source = action_cfg.get(key)
+                break
+    number_style = _to_prompt_number_style(number_style_source, default_number_style)
+
+    range_block_size_source: Any = prompt_cfg.get("range_block_size")
+    if range_block_size_source is None:
+        for key in legacy_range_block_size_keys:
+            if key in action_cfg:
+                range_block_size_source = action_cfg.get(key)
+                break
+    range_block_size = _to_positive_int(range_block_size_source, default_range_block_size)
+
+    input_items = _to_string_list(
+        prompt_cfg.get("input_items"),
+        fallback=fallback_form_input_items,
+    )
+
+    return kind, number_style, range_block_size, input_items
+
+
+def _set_missed_date_context_from_cfg(action_cfg: dict[str, Any], action_key: str, fallback: bool) -> None:
+    ACTION_MISSED_DATE_CONTEXT[action_key] = _to_bool(
+        action_cfg.get("add_missed_date_context", fallback),
+        fallback,
+    )
 
 
 def _is_bank_enabled(bank_name: str) -> bool:
     return bank_name.strip().upper() in ENABLED_Q_BANKS
 
 
-def scrub_resource_label_to_tag(label: str) -> str:
-    cleaned = str(label).strip()
-    cleaned = re.sub(r"[^A-Za-z0-9\- ]+", "", cleaned)
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    return cleaned
+def _normalize_other_actions(raw: Any) -> list[dict[str, Any]]:
+    if isinstance(raw, list):
+        source = raw
+        fallback_to_defaults = False
+    else:
+        source = DEFAULT_OTHER_ACTIONS
+        fallback_to_defaults = True
+    out: list[dict[str, Any]] = []
+
+    for item in source:
+        if not isinstance(item, dict):
+            continue
+
+        menu_label = str(item.get("menu_label", "")).strip()
+        tag_segment = str(item.get("tag_segment", "")).strip()
+        if not menu_label or not tag_segment:
+            continue
+
+        (
+            prompt_kind,
+            prompt_number_style,
+            prompt_range_block_size,
+            prompt_input_items,
+        ) = _resolve_action_prompt(
+            item,
+            default_kind=PROMPT_KIND_NONE,
+            default_number_style=PROMPT_STYLE_NUMBER_ONLY,
+            default_range_block_size=DEFAULT_TEST_RANGE_BLOCK_SIZE,
+            default_form_input_items=DEFAULT_FORM_INPUT_ITEMS,
+        )
+        out.append(
+            {
+                "menu_label": menu_label,
+                "tag_segment": tag_segment,
+                "prompt_kind": prompt_kind,
+                "prompt_number_style": prompt_number_style,
+                "prompt_range_block_size": prompt_range_block_size,
+                "prompt_input_items": prompt_input_items,
+            }
+        )
+
+    if out:
+        return out
+    if fallback_to_defaults:
+        return [dict(item) for item in DEFAULT_OTHER_ACTIONS]
+    return []
+
+
+def _get_input_dialog_item(
+    parent: Any,
+    title: str,
+    label: str,
+    items: list[str],
+    current_index: int = 0,
+    editable: bool = False,
+) -> tuple[str, bool]:
+    """
+    Wrapper for QInputDialog.getItem.
+
+    Runtime Qt bindings provide this static method, but some type stubs omit it.
+    """
+    dialog_api: Any = QInputDialog
+    selected_item, ok = dialog_api.getItem(
+        parent,
+        title,
+        label,
+        items,
+        current_index,
+        editable,
+    )
+    return str(selected_item), bool(ok)
+
+
+def _other_action_base_tag(action_tag_segment: str) -> str:
+    segment = str(action_tag_segment or "").strip()
+    if not segment:
+        return ""
+
+    parts: list[str] = []
+    if OTHER_CHILD_OF_PRIMARY:
+        parts.append(PRIMARY_MISSED_TAG or DEFAULT_PRIMARY_MISSED_TAG)
+    if OTHER_TAG_SEGMENT_GROUP:
+        parts.append(_to_text(OTHER_GROUP_SEGMENT, DEFAULT_OTHER_GROUP_SEGMENT))
+    parts.append(segment)
+    return "::".join([part for part in parts if part])
 
 
 def _uw_base_tag() -> str:
@@ -190,19 +410,33 @@ def _nbme_base_tag() -> str:
 
 def _reload_runtime_config() -> None:
     global MISSED_BASE_TAG
+    global PRIMARY_MISSED_TAG
     global ENABLED_Q_BANKS
     global SUBSET_1_NAME
     global SUBSET_1_TAG
     global SUBSET_2_NAME
     global SUBSET_2_TAG
+    global UWORLD_PROMPT_KIND
+    global UWORLD_NUMBER_STYLE
+    global UWORLD_RANGE_BLOCK_SIZE
+    global UWORLD_PROMPT_INPUT_ITEMS
+    global NBME_PROMPT_KIND
+    global NBME_NUMBER_STYLE
+    global NBME_RANGE_BLOCK_SIZE
+    global NBME_PROMPT_INPUT_ITEMS
     global AMBOSS_TOP_LEVEL_NAME
+    global AMBOSS_PROMPT_KIND
     global AMBOSS_BASE_TAG
     global AMBOSS_NUMBER_STYLE
-    global AMBOSS_REMOVE_FROM_OTHER_MENU
+    global AMBOSS_PROMPT_RANGE_BLOCK_SIZE
+    global AMBOSS_PROMPT_INPUT_ITEMS
     global MULTI_MISS_TAG
-    global OTHER_SUFFIX
-    global OTHER_RESOURCES
-    global KEY_TAG_BASE
+    global OTHER_SUBMENU_BOOL
+    global OTHER_SUBMENU_LABEL
+    global OTHER_CHILD_OF_PRIMARY
+    global OTHER_TAG_SEGMENT_GROUP
+    global OTHER_GROUP_SEGMENT
+    global OTHER_ACTIONS
     global CORRECT_GUESS_TAGS
     global TEST_RANGE_BLOCK_SIZE
     global DEFAULT_NBME_TAG_PREFIX_RUNTIME
@@ -213,12 +447,12 @@ def _reload_runtime_config() -> None:
     global MSG_INVALID_TEST_NUMBER
     global ACTION_LABEL_BASE
     global ACTION_LABEL_MULTI_MISSED
-    global ACTION_LABEL_KEY_INFO
     global ACTION_LABEL_CORRECT_GUESS
     global PROMPT_TITLE_GENERIC
     global PROMPT_LABEL_GENERIC
+    global ACTION_MISSED_DATE_CONTEXT
 
-    section_cfg = ConfigManager(CONFIG_SECTION).load()
+    section_cfg = ConfigManager.get_section(CONFIG_SECTION, default={})
     merged_cfg = section_cfg if isinstance(section_cfg, dict) else {}
 
     defaults_cfg = merged_cfg.get("defaults", {})
@@ -249,10 +483,6 @@ def _reload_runtime_config() -> None:
     if not isinstance(multi_missed_cfg, dict):
         multi_missed_cfg = {}
 
-    key_info_cfg = actions_cfg.get("key_info", {})
-    if not isinstance(key_info_cfg, dict):
-        key_info_cfg = {}
-
     correct_guess_cfg = actions_cfg.get("correct_guess", {})
     if not isinstance(correct_guess_cfg, dict):
         correct_guess_cfg = {}
@@ -260,13 +490,24 @@ def _reload_runtime_config() -> None:
     other_cfg = actions_cfg.get("other", {})
     if not isinstance(other_cfg, dict):
         other_cfg = {}
+    other_tagging_cfg = other_cfg.get("tagging", {})
+    if not isinstance(other_tagging_cfg, dict):
+        other_tagging_cfg = {}
 
     date_cfg = merged_cfg.get("date", {})
     if not isinstance(date_cfg, dict):
         date_cfg = {}
 
+    PRIMARY_MISSED_TAG = _to_text(
+        merged_cfg.get("primary_missed_tag", DEFAULT_PRIMARY_MISSED_TAG),
+        DEFAULT_PRIMARY_MISSED_TAG,
+    )
+
     MISSED_TAGS_MENU_LABEL = _to_text(
-        defaults_cfg.get("menu_label", DEFAULT_MISSED_TAGS_MENU_LABEL),
+        merged_cfg.get(
+            "menu_label",
+            defaults_cfg.get("menu_label", DEFAULT_MISSED_TAGS_MENU_LABEL),
+        ),
         DEFAULT_MISSED_TAGS_MENU_LABEL,
     )
 
@@ -282,10 +523,6 @@ def _reload_runtime_config() -> None:
         multi_missed_cfg.get("label", DEFAULT_ACTION_LABEL_MULTI_MISSED),
         DEFAULT_ACTION_LABEL_MULTI_MISSED,
     )
-    ACTION_LABEL_KEY_INFO = _to_text(
-        key_info_cfg.get("label", DEFAULT_ACTION_LABEL_KEY_INFO),
-        DEFAULT_ACTION_LABEL_KEY_INFO,
-    )
     ACTION_LABEL_CORRECT_GUESS = _to_text(
         correct_guess_cfg.get("label", DEFAULT_ACTION_LABEL_CORRECT_GUESS),
         DEFAULT_ACTION_LABEL_CORRECT_GUESS,
@@ -294,9 +531,24 @@ def _reload_runtime_config() -> None:
     PROMPT_TITLE_GENERIC = DEFAULT_PROMPT_TITLE_GENERIC
     PROMPT_LABEL_GENERIC = DEFAULT_PROMPT_LABEL_GENERIC
 
-    MISSED_BASE_TAG = _to_string_list(
-        base_cfg.get("tags", DEFAULT_BASE_MISSED_TAGS),
-        fallback=DEFAULT_BASE_MISSED_TAGS,
+    ACTION_MISSED_DATE_CONTEXT = dict(DEFAULT_ACTION_MISSED_DATE_CONTEXT)
+
+    base_child_of_primary = _resolve_child_of_primary_flag(
+        base_cfg,
+        default_child=False,
+        legacy_absolute_keys=("tags",),
+    )
+    MISSED_BASE_TAG = _resolve_action_tags(
+        base_cfg,
+        child_of_primary=base_child_of_primary,
+        default_segments=[""],
+        default_absolute_tags=[PRIMARY_MISSED_TAG],
+        legacy_absolute_keys=("tags",),
+    )
+    _set_missed_date_context_from_cfg(
+        base_cfg,
+        ACTION_KEY_BASE_PLAIN,
+        DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_BASE_PLAIN],
     )
 
     DEFAULT_TEST_TAG_PREFIX_RUNTIME = _to_text(
@@ -312,65 +564,176 @@ def _reload_runtime_config() -> None:
         uworld_cfg.get("label", DEFAULT_UWORLD_LABEL),
         DEFAULT_UWORLD_LABEL,
     )
-    SUBSET_1_TAG = _to_string_list(
-        uworld_cfg.get("base_tags", [base_tag_path(DEFAULT_TEST_TAG_PREFIX_RUNTIME)]),
-        fallback=[base_tag_path(DEFAULT_TEST_TAG_PREFIX_RUNTIME)],
+    uworld_child_of_primary = _resolve_child_of_primary_flag(
+        uworld_cfg,
+        default_child=True,
+        legacy_absolute_keys=("base_tags",),
+    )
+    SUBSET_1_TAG = _resolve_action_tags(
+        uworld_cfg,
+        child_of_primary=uworld_child_of_primary,
+        default_segments=[DEFAULT_TEST_TAG_PREFIX_RUNTIME],
+        default_absolute_tags=[base_tag_path(DEFAULT_TEST_TAG_PREFIX_RUNTIME)],
+        legacy_absolute_keys=("base_tags",),
+    )
+    (
+        UWORLD_PROMPT_KIND,
+        UWORLD_NUMBER_STYLE,
+        UWORLD_RANGE_BLOCK_SIZE,
+        UWORLD_PROMPT_INPUT_ITEMS,
+    ) = _resolve_action_prompt(
+        uworld_cfg,
+        default_kind=PROMPT_KIND_NUMBER,
+        default_number_style=PROMPT_STYLE_RANGE_THEN_NUMBER,
+        default_range_block_size=DEFAULT_TEST_RANGE_BLOCK_SIZE,
+        default_form_input_items=DEFAULT_FORM_INPUT_ITEMS,
+        legacy_range_block_size_keys=("test_range_block_size",),
+    )
+    _set_missed_date_context_from_cfg(
+        uworld_cfg,
+        ACTION_KEY_UWORLD_TEST_PROMPT,
+        DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_UWORLD_TEST_PROMPT],
     )
 
     SUBSET_2_NAME = _to_text(
         nbme_cfg.get("label", DEFAULT_NBME_LABEL),
         DEFAULT_NBME_LABEL,
     )
-    SUBSET_2_TAG = _to_string_list(
-        nbme_cfg.get("base_tags", [base_tag_path(DEFAULT_NBME_TAG_PREFIX_RUNTIME)]),
-        fallback=[base_tag_path(DEFAULT_NBME_TAG_PREFIX_RUNTIME)],
+    nbme_child_of_primary = _resolve_child_of_primary_flag(
+        nbme_cfg,
+        default_child=True,
+        legacy_absolute_keys=("base_tags",),
+    )
+    SUBSET_2_TAG = _resolve_action_tags(
+        nbme_cfg,
+        child_of_primary=nbme_child_of_primary,
+        default_segments=[DEFAULT_NBME_TAG_PREFIX_RUNTIME],
+        default_absolute_tags=[base_tag_path(DEFAULT_NBME_TAG_PREFIX_RUNTIME)],
+        legacy_absolute_keys=("base_tags",),
+    )
+    (
+        NBME_PROMPT_KIND,
+        NBME_NUMBER_STYLE,
+        NBME_RANGE_BLOCK_SIZE,
+        NBME_PROMPT_INPUT_ITEMS,
+    ) = _resolve_action_prompt(
+        nbme_cfg,
+        default_kind=PROMPT_KIND_FORM,
+        default_number_style=PROMPT_STYLE_NUMBER_ONLY,
+        default_range_block_size=DEFAULT_TEST_RANGE_BLOCK_SIZE,
+        default_form_input_items=DEFAULT_FORM_INPUT_ITEMS,
+    )
+    _set_missed_date_context_from_cfg(
+        nbme_cfg,
+        ACTION_KEY_NBME_FORM_PROMPT,
+        DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_NBME_FORM_PROMPT],
     )
 
     AMBOSS_TOP_LEVEL_NAME = _to_text(
         amboss_cfg.get("label", DEFAULT_AMBOSS_LABEL),
         DEFAULT_AMBOSS_LABEL,
     )
-    AMBOSS_BASE_TAG = _to_text(
-        amboss_cfg.get("base_tag", DEFAULT_AMBOSS_BASE_TAG),
-        DEFAULT_AMBOSS_BASE_TAG,
+    amboss_child_of_primary = _resolve_child_of_primary_flag(
+        amboss_cfg,
+        default_child=True,
+        legacy_absolute_keys=("base_tag",),
     )
-    AMBOSS_NUMBER_STYLE = _to_text(
-        amboss_cfg.get("number_style", PROMPT_STYLE_NUMBER_ONLY),
-        PROMPT_STYLE_NUMBER_ONLY,
+    amboss_default_segment = _to_text(
+        amboss_cfg.get("tag_segment", "Amboss"),
+        "Amboss",
     )
-    AMBOSS_REMOVE_FROM_OTHER_MENU = _to_bool(
-        amboss_cfg.get("remove_from_other_menu", True),
+    amboss_tags = _resolve_action_tags(
+        amboss_cfg,
+        child_of_primary=amboss_child_of_primary,
+        default_segments=[amboss_default_segment],
+        default_absolute_tags=[DEFAULT_AMBOSS_BASE_TAG],
+        legacy_segment_keys=("tag_segment",),
+        legacy_absolute_keys=("base_tag",),
+    )
+    AMBOSS_BASE_TAG = amboss_tags[0] if amboss_tags else DEFAULT_AMBOSS_BASE_TAG
+    (
+        AMBOSS_PROMPT_KIND,
+        AMBOSS_NUMBER_STYLE,
+        AMBOSS_PROMPT_RANGE_BLOCK_SIZE,
+        AMBOSS_PROMPT_INPUT_ITEMS,
+    ) = _resolve_action_prompt(
+        amboss_cfg,
+        default_kind=PROMPT_KIND_NUMBER,
+        default_number_style=PROMPT_STYLE_NUMBER_ONLY,
+        default_range_block_size=DEFAULT_TEST_RANGE_BLOCK_SIZE,
+        default_form_input_items=DEFAULT_FORM_INPUT_ITEMS,
+        legacy_number_style_keys=("number_style",),
+    )
+    _set_missed_date_context_from_cfg(
+        amboss_cfg,
+        ACTION_KEY_AMBOSS_TEST_PROMPT,
+        DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_AMBOSS_TEST_PROMPT],
+    )
+
+    multi_missed_child_of_primary = _resolve_child_of_primary_flag(
+        multi_missed_cfg,
+        default_child=True,
+        legacy_absolute_keys=("absolute_tag",),
+    )
+    multi_missed_tags = _resolve_action_tags(
+        multi_missed_cfg,
+        child_of_primary=multi_missed_child_of_primary,
+        default_segments=[DEFAULT_MULTI_MISS_TAG],
+        default_absolute_tags=[base_tag_path(DEFAULT_MULTI_MISS_TAG)],
+        legacy_segment_keys=("tag_segment",),
+        legacy_absolute_keys=("absolute_tag",),
+    )
+    MULTI_MISS_TAG = multi_missed_tags[0] if multi_missed_tags else base_tag_path(DEFAULT_MULTI_MISS_TAG)
+    _set_missed_date_context_from_cfg(
+        multi_missed_cfg,
+        ACTION_KEY_MULTI_MISSED,
+        DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_MULTI_MISSED],
+    )
+
+    correct_guess_child_of_primary = _resolve_child_of_primary_flag(
+        correct_guess_cfg,
+        default_child=False,
+        legacy_absolute_keys=("tags",),
+    )
+    CORRECT_GUESS_TAGS = _resolve_action_tags(
+        correct_guess_cfg,
+        child_of_primary=correct_guess_child_of_primary,
+        default_segments=["correct_marked"],
+        default_absolute_tags=DEFAULT_CORRECT_GUESS_TAGS,
+        legacy_absolute_keys=("tags",),
+    )
+    _set_missed_date_context_from_cfg(
+        correct_guess_cfg,
+        ACTION_KEY_CORRECT_GUESS,
+        DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_CORRECT_GUESS],
+    )
+
+    OTHER_SUBMENU_BOOL = _to_bool(
+        other_cfg.get("submenu_bool", DEFAULT_OTHER_SUBMENU_BOOL),
+        DEFAULT_OTHER_SUBMENU_BOOL,
+    )
+    OTHER_SUBMENU_LABEL = _to_text(
+        other_cfg.get("submenu_label", DEFAULT_OTHER_SUBMENU_LABEL),
+        DEFAULT_OTHER_SUBMENU_LABEL,
+    )
+    OTHER_CHILD_OF_PRIMARY = _to_bool(
+        other_tagging_cfg.get("child_of_primary_missed", True),
         True,
     )
-
-    MULTI_MISS_TAG = _to_text(
-        multi_missed_cfg.get("tag_segment", DEFAULT_MULTI_MISS_TAG),
-        DEFAULT_MULTI_MISS_TAG,
+    OTHER_TAG_SEGMENT_GROUP = _to_bool(
+        other_tagging_cfg.get("tag_segment_group", DEFAULT_OTHER_TAG_SEGMENT_GROUP),
+        DEFAULT_OTHER_TAG_SEGMENT_GROUP,
     )
-
-    KEY_TAG_BASE = _to_text(
-        key_info_cfg.get("tag_base", DEFAULT_KEY_TAG_BASE),
-        DEFAULT_KEY_TAG_BASE,
+    OTHER_GROUP_SEGMENT = _to_text(
+        other_tagging_cfg.get("group_segment", DEFAULT_OTHER_GROUP_SEGMENT),
+        DEFAULT_OTHER_GROUP_SEGMENT,
     )
-
-    CORRECT_GUESS_TAGS = _to_string_list(
-        correct_guess_cfg.get("tags", DEFAULT_CORRECT_GUESS_TAGS),
-        fallback=DEFAULT_CORRECT_GUESS_TAGS,
+    ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_OTHER_RESOURCE] = _to_bool(
+        other_tagging_cfg.get("add_missed_date_context", DEFAULT_OTHER_ADD_MISSED_DATE_CONTEXT),
+        DEFAULT_OTHER_ADD_MISSED_DATE_CONTEXT,
     )
-
-    OTHER_RESOURCES = _to_string_list(
-        other_cfg.get("resources", DEFAULT_OTHER_RESOURCES),
-        fallback=DEFAULT_OTHER_RESOURCES,
-    )
-    OTHER_SUFFIX = _to_text(
-        other_cfg.get("tag_suffix", DEFAULT_OTHER_SUFFIX),
-        DEFAULT_OTHER_SUFFIX,
-    )
-
-    TEST_RANGE_BLOCK_SIZE = _to_positive_int(
-        uworld_cfg.get("test_range_block_size", DEFAULT_TEST_RANGE_BLOCK_SIZE),
-        DEFAULT_TEST_RANGE_BLOCK_SIZE,
-    )
+    OTHER_ACTIONS = _normalize_other_actions(other_cfg.get("actions", DEFAULT_OTHER_ACTIONS))
+    TEST_RANGE_BLOCK_SIZE = UWORLD_RANGE_BLOCK_SIZE
 
     include_day_segment_raw = date_cfg.get(
         "include_day_segment",
@@ -378,10 +741,8 @@ def _reload_runtime_config() -> None:
     )
     INCLUDE_DAY_SEGMENT = _to_bool(include_day_segment_raw, DEFAULT_INCLUDE_DAY_SEGMENT)
 
-    ENABLED_Q_BANKS = _normalize_q_banks(
-        merged_cfg.get("Q_Banks", DEFAULT_Q_BANKS),
-        fallback=DEFAULT_Q_BANKS,
-    )
+    # Hardcoded by request: bank visibility is no longer configurable.
+    ENABLED_Q_BANKS = {bank.upper() for bank in DEFAULT_Q_BANKS}
 
 
 _reload_runtime_config()
@@ -389,7 +750,7 @@ _reload_runtime_config()
 
 def get_missed_month_tag() -> str:
     now = datetime.now()
-    base = MISSED_BASE_TAG[0] if MISSED_BASE_TAG else DEFAULT_BASE_MISSED_TAGS[0]
+    base = PRIMARY_MISSED_TAG or DEFAULT_PRIMARY_MISSED_TAG
     month_segment = f"{now.strftime('%m')}_{now.strftime('%B')}"
     tag = f"{base}::{now.year}::{month_segment}"
     if INCLUDE_DAY_SEGMENT:
@@ -397,18 +758,8 @@ def get_missed_month_tag() -> str:
     return tag
 
 
-def get_key_info_tag() -> str:
-    now = datetime.now()
-    return f"{KEY_TAG_BASE}::{now.year}::{now.strftime('%m')}_{now.strftime('%B')}"
-
-
 def get_correct_guess_tags() -> list[str]:
     return list(CORRECT_GUESS_TAGS)
-
-
-def get_rotation_key_info_tag() -> str:
-    """Backward-compatible alias for older imports."""
-    return get_key_info_tag()
 
 
 def _add_tag_safe(note, tag: str):
@@ -434,7 +785,7 @@ def apply_tags_to_selected_notes(browser, tag_list: list[str], action_key: str):
         return
 
     final = list(tag_list or [])
-    if action_key not in set(EXCLUDE_AUTO_MISS):
+    if ACTION_MISSED_DATE_CONTEXT.get(action_key, True):
         final.append(get_missed_month_tag())
 
     seen = set()
@@ -464,53 +815,241 @@ def add_base_plain_action(browser, menu):
     menu.addAction(action)
 
 
-def add_missed_tag_menu_items(browser, menu):
-    _reload_runtime_config()
-
-    tag_menu = QMenu(MISSED_TAGS_MENU_LABEL, browser)
-    tag_menu.setStyleSheet(
-        """
-        QMenu::item {
-            padding-top: 4.5px;
-            padding-bottom: 4.5px;
-            padding-left: 6px;
-            padding-right: 6px;
-        }
-        QMenu::item:selected {
-            background-color: rgba(120, 160, 255, 60);  /* subtle hover highlight */
-        }
-    """
-    )
-
-    add_uworld_tags(browser, tag_menu)
-    add_nbme_tag(browser, tag_menu)
-    add_amboss_tag(browser, tag_menu)
-    add_base_plain_action(browser, tag_menu)
-    tag_menu.addSeparator()
-
-    add_multi_tag(browser, tag_menu)
-    tag_menu.addSeparator()
-
-    add_key_info_action(browser, tag_menu)
-    add_correct_guess_action(browser, tag_menu)
-    tag_menu.addSeparator()
-
-    add_other_resources_actions(browser, tag_menu)
-
-    if tag_menu.actions():
-        menu.addSeparator()
-        menu.addMenu(tag_menu)
-
-
 def add_nbme_tag(browser, menu):
     if not _is_bank_enabled("NBME"):
         return
 
     base_tag = _nbme_base_tag()
     action = QAction(f"{SUBSET_2_NAME:<24}", browser)
+    if NBME_PROMPT_KIND == PROMPT_KIND_NONE:
+        action.triggered.connect(
+            lambda _: apply_tags_to_selected_notes(
+                browser,
+                [base_tag],
+                action_key=ACTION_KEY_NBME_FORM_PROMPT,
+            )
+        )
+    elif NBME_PROMPT_KIND == PROMPT_KIND_FORM:
+        action.triggered.connect(
+            make_form_prompt_handler(
+                browser,
+                base_tag,
+                action_key=ACTION_KEY_NBME_FORM_PROMPT,
+                title=PROMPT_TITLE_NBME_FORM,
+                label=PROMPT_LABEL_NBME_FORM,
+                input_items=NBME_PROMPT_INPUT_ITEMS,
+            )
+        )
+    else:
+        action.triggered.connect(
+            make_test_prompt_handler(
+                browser,
+                base_tag,
+                action_key=ACTION_KEY_NBME_FORM_PROMPT,
+                title=PROMPT_TITLE_NBME_FORM,
+                label=PROMPT_LABEL_NBME_FORM,
+                number_style=NBME_NUMBER_STYLE,
+                range_block_size=NBME_RANGE_BLOCK_SIZE,
+            )
+        )
+    menu.addAction(action)
 
+
+def add_amboss_tag(browser, menu):
+    if not _is_bank_enabled("AMBOSS"):
+        return
+
+    action = QAction(f"{AMBOSS_TOP_LEVEL_NAME:<24}", browser)
+    if AMBOSS_PROMPT_KIND == PROMPT_KIND_NONE:
+        action.triggered.connect(
+            lambda _: apply_tags_to_selected_notes(
+                browser,
+                [AMBOSS_BASE_TAG],
+                action_key=ACTION_KEY_AMBOSS_TEST_PROMPT,
+            )
+        )
+    elif AMBOSS_PROMPT_KIND == PROMPT_KIND_FORM:
+        action.triggered.connect(
+            make_form_prompt_handler(
+                browser,
+                AMBOSS_BASE_TAG,
+                action_key=ACTION_KEY_AMBOSS_TEST_PROMPT,
+                title=PROMPT_TITLE_AMBOSS,
+                label=PROMPT_LABEL_GENERIC,
+                input_items=AMBOSS_PROMPT_INPUT_ITEMS,
+            )
+        )
+    else:
+        action.triggered.connect(
+            make_test_prompt_handler(
+                browser,
+                AMBOSS_BASE_TAG,
+                action_key=ACTION_KEY_AMBOSS_TEST_PROMPT,
+                title=PROMPT_TITLE_AMBOSS,
+                label=PROMPT_LABEL_GENERIC,
+                number_style=AMBOSS_NUMBER_STYLE,
+                range_block_size=AMBOSS_PROMPT_RANGE_BLOCK_SIZE,
+            )
+        )
+    menu.addAction(action)
+
+
+def add_multi_tag(browser, menu):
+    multi_tag = MULTI_MISS_TAG
+    add_static_action(
+        browser,
+        menu,
+        f"{ACTION_LABEL_MULTI_MISSED:<24}",
+        [multi_tag],
+        action_key=ACTION_KEY_MULTI_MISSED,
+    )
+
+
+def add_uworld_tags(browser, menu):
+    if not _is_bank_enabled("UWORLD"):
+        return
+
+    base = _uw_base_tag()
+    if SUBSET_1_NAME and base:
+        action = QAction(f"{SUBSET_1_NAME:<24}", browser)
+        if UWORLD_PROMPT_KIND == PROMPT_KIND_NONE:
+            action.triggered.connect(
+                lambda _: apply_tags_to_selected_notes(
+                    browser,
+                    [base],
+                    action_key=ACTION_KEY_UWORLD_TEST_PROMPT,
+                )
+            )
+        elif UWORLD_PROMPT_KIND == PROMPT_KIND_FORM:
+            action.triggered.connect(
+                make_form_prompt_handler(
+                    browser,
+                    base,
+                    action_key=ACTION_KEY_UWORLD_TEST_PROMPT,
+                    title=PROMPT_TITLE_UWORLD,
+                    label=PROMPT_LABEL_GENERIC,
+                    input_items=UWORLD_PROMPT_INPUT_ITEMS,
+                )
+            )
+        else:
+            action.triggered.connect(
+                make_test_prompt_handler(
+                    browser,
+                    base,
+                    action_key=ACTION_KEY_UWORLD_TEST_PROMPT,
+                    title=PROMPT_TITLE_UWORLD,
+                    label=PROMPT_LABEL_GENERIC,
+                    number_style=UWORLD_NUMBER_STYLE,
+                    range_block_size=UWORLD_RANGE_BLOCK_SIZE,
+                )
+            )
+        menu.addAction(action)
+
+
+def add_other_resources_actions(browser, menu):
+    if not OTHER_ACTIONS:
+        return
+
+    action_target_menu = menu
+    submenu = None
+    if OTHER_SUBMENU_BOOL:
+        submenu = QMenu(OTHER_SUBMENU_LABEL, browser)
+        action_target_menu = submenu
+
+    for item in OTHER_ACTIONS:
+        menu_label = str(item.get("menu_label", "")).strip()
+        tag_segment = str(item.get("tag_segment", "")).strip()
+        if not menu_label or not tag_segment:
+            continue
+
+        base_tag = _other_action_base_tag(tag_segment)
+        if not base_tag:
+            continue
+
+        prompt_kind = _to_prompt_kind(item.get("prompt_kind", PROMPT_KIND_NONE), PROMPT_KIND_NONE)
+        prompt_number_style = _to_prompt_number_style(
+            item.get("prompt_number_style", PROMPT_STYLE_NUMBER_ONLY),
+            PROMPT_STYLE_NUMBER_ONLY,
+        )
+        prompt_range_block_size = _to_positive_int(
+            item.get("prompt_range_block_size", DEFAULT_TEST_RANGE_BLOCK_SIZE),
+            DEFAULT_TEST_RANGE_BLOCK_SIZE,
+        )
+        prompt_input_items = _to_string_list(
+            item.get("prompt_input_items"),
+            fallback=DEFAULT_FORM_INPUT_ITEMS,
+        )
+
+        action = QAction(menu_label, browser)
+        if prompt_kind == PROMPT_KIND_NONE:
+            action.triggered.connect(
+                lambda _, btag=base_tag: apply_tags_to_selected_notes(
+                    browser,
+                    [btag],
+                    action_key=ACTION_KEY_OTHER_RESOURCE,
+                )
+            )
+        elif prompt_kind == PROMPT_KIND_FORM:
+            action.triggered.connect(
+                make_form_prompt_handler(
+                    browser,
+                    base_tag,
+                    action_key=ACTION_KEY_OTHER_RESOURCE,
+                    title=f"Enter {menu_label}",
+                    label=PROMPT_LABEL_GENERIC,
+                    input_items=prompt_input_items,
+                )
+            )
+        else:
+            action.triggered.connect(
+                make_test_prompt_handler(
+                    browser,
+                    base_tag,
+                    action_key=ACTION_KEY_OTHER_RESOURCE,
+                    title=f"Enter {menu_label}",
+                    label=PROMPT_LABEL_GENERIC,
+                    number_style=prompt_number_style,
+                    range_block_size=prompt_range_block_size,
+                )
+            )
+        action_target_menu.addAction(action)
+
+    if submenu is not None and submenu.actions():
+        menu.addMenu(submenu)
+
+
+def make_form_prompt_handler(
+    browser,
+    base_tag: str,
+    action_key: str,
+    title: str | None = None,
+    label: str | None = None,
+    input_items: list[str] | None = None,
+):
     def on_trigger():
-        form_value, ok = QInputDialog.getText(browser, PROMPT_TITLE_NBME_FORM, PROMPT_LABEL_NBME_FORM)
+        prompt_title = (title or PROMPT_TITLE_GENERIC).strip() or PROMPT_TITLE_GENERIC
+        prompt_label = (label or PROMPT_LABEL_GENERIC).strip() or PROMPT_LABEL_GENERIC
+
+        normalized_items = _to_string_list(
+            input_items,
+            fallback=DEFAULT_FORM_INPUT_ITEMS,
+        )
+        if len(normalized_items) > 1:
+            selected_item, item_ok = _get_input_dialog_item(
+                browser,
+                prompt_title,
+                "Select item:",
+                normalized_items,
+                0,
+                False,
+            )
+            if not item_ok:
+                return
+            form_prefix = str(selected_item).strip() or DEFAULT_FORM_INPUT_ITEMS[0]
+        else:
+            form_prefix = normalized_items[0]
+
+        form_value, ok = QInputDialog.getText(browser, prompt_title, prompt_label)
         if not ok:
             return
 
@@ -528,101 +1067,11 @@ def add_nbme_tag(browser, menu):
             showInfo(MSG_NO_NOTES_SELECTED)
             return
 
-        formatted_tag = f"{base_tag}::Form_{form_number}"
-        apply_tags_to_selected_notes(
-            browser,
-            [formatted_tag],
-            action_key=ACTION_KEY_NBME_FORM_PROMPT,
-        )
+        separator = "" if form_prefix.endswith("_") else "_"
+        formatted_tag = f"{base_tag}::{form_prefix}{separator}{form_number}"
+        apply_tags_to_selected_notes(browser, [formatted_tag], action_key=action_key)
 
-    action.triggered.connect(on_trigger)
-    menu.addAction(action)
-
-
-def add_amboss_tag(browser, menu):
-    if not _is_bank_enabled("AMBOSS"):
-        return
-
-    action = QAction(f"{AMBOSS_TOP_LEVEL_NAME:<24}", browser)
-    action.triggered.connect(
-        make_test_prompt_handler(
-            browser,
-            AMBOSS_BASE_TAG,
-            action_key=ACTION_KEY_AMBOSS_TEST_PROMPT,
-            title=PROMPT_TITLE_AMBOSS,
-            label=PROMPT_LABEL_GENERIC,
-            number_style=AMBOSS_NUMBER_STYLE,
-        )
-    )
-    menu.addAction(action)
-
-
-def add_multi_tag(browser, menu):
-    multi_tag = base_tag_path(MULTI_MISS_TAG)
-    add_static_action(
-        browser,
-        menu,
-        f"{ACTION_LABEL_MULTI_MISSED:<24}",
-        [multi_tag],
-        action_key="multi_missed",
-    )
-
-
-def add_uworld_tags(browser, menu):
-    if not _is_bank_enabled("UWORLD"):
-        return
-
-    base = _uw_base_tag()
-    if SUBSET_1_NAME and base:
-        action = QAction(f"{SUBSET_1_NAME:<24}", browser)
-        action.triggered.connect(
-            make_test_prompt_handler(
-                browser,
-                base,
-                action_key=ACTION_KEY_UWORLD_TEST_PROMPT,
-                title=PROMPT_TITLE_UWORLD,
-                label=PROMPT_LABEL_GENERIC,
-                number_style=PROMPT_STYLE_RANGE_THEN_NUMBER,
-            )
-        )
-        menu.addAction(action)
-
-
-def add_other_resources_actions(browser, menu):
-    for resource_name in OTHER_RESOURCES:
-        label = str(resource_name).strip()
-        canonical = scrub_resource_label_to_tag(resource_name)
-
-        if AMBOSS_REMOVE_FROM_OTHER_MENU and canonical.lower() == "amboss":
-            continue
-
-        if canonical == "True-Learn":
-            base_tag = base_tag_path(OTHER_SUFFIX, canonical)
-            action = QAction(label, browser)
-            handler = make_test_prompt_handler(
-                browser,
-                base_tag,
-                action_key=ACTION_KEY_TRUE_LEARN_TEST_PROMPT,
-                title=PROMPT_TITLE_TRUE_LEARN,
-                label=PROMPT_LABEL_GENERIC,
-                number_style=PROMPT_STYLE_NUMBER_ONLY,
-            )
-            action.triggered.connect(handler)
-            menu.addAction(action)
-            continue
-
-        resource_tag = base_tag_path(OTHER_SUFFIX, canonical)
-        action = QAction(label, browser)
-
-        def on_click(_, rtag=resource_tag):
-            if not browser.selectedNotes():
-                showInfo(MSG_NO_NOTES_SELECTED)
-                return
-            tags_to_apply = MISSED_BASE_TAG + [rtag]
-            apply_tags_to_selected_notes(browser, tags_to_apply, action_key=ACTION_KEY_OTHER_RESOURCE)
-
-        action.triggered.connect(on_click)
-        menu.addAction(action)
+    return on_trigger
 
 
 def make_test_prompt_handler(
@@ -632,6 +1081,7 @@ def make_test_prompt_handler(
     title: str | None = None,
     label: str | None = None,
     number_style: str = PROMPT_STYLE_RANGE_THEN_NUMBER,
+    range_block_size: int = DEFAULT_TEST_RANGE_BLOCK_SIZE,
 ):
     """
     number_style:
@@ -664,8 +1114,9 @@ def make_test_prompt_handler(
                 formatted_tag = f"{base_tag}"
             else:
                 if normalized_number_style == PROMPT_STYLE_RANGE_THEN_NUMBER:
-                    lower = ((test_number - 1) // TEST_RANGE_BLOCK_SIZE) * TEST_RANGE_BLOCK_SIZE + 1
-                    upper = lower + TEST_RANGE_BLOCK_SIZE - 1
+                    block_size = _to_positive_int(range_block_size, TEST_RANGE_BLOCK_SIZE)
+                    lower = ((test_number - 1) // block_size) * block_size + 1
+                    upper = lower + block_size - 1
                     range_tag = f"{lower}-{upper}"
                     formatted_tag = f"{base_tag}::{range_tag}::{test_number:02d}"
                 else:
@@ -685,20 +1136,6 @@ def add_static_action(browser, menu, set_name: str, tags: list[str], action_key:
     action.triggered.connect(
         lambda _, tags=tags, k=action_key: apply_tags_to_selected_notes(browser, tags, action_key=k)
     )
-    menu.addAction(action)
-
-
-def add_key_info_action(browser, menu):
-    action = QAction(ACTION_LABEL_KEY_INFO, browser)
-
-    def on_click():
-        if not browser.selectedNotes():
-            showInfo(MSG_NO_NOTES_SELECTED)
-            return
-        key_tag = get_key_info_tag()
-        apply_tags_to_selected_notes(browser, [key_tag], action_key=ACTION_KEY_KEY_INFO)
-
-    action.triggered.connect(on_click)
     menu.addAction(action)
 
 

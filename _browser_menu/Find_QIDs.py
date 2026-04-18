@@ -173,9 +173,17 @@ class MissedQIDDialog(QDialog):
         layout.addLayout(button_layout)
 
 # Register the legacy Tools menu entry
-action = QAction("Find notes UW qids 🌀", mw)
-qconnect(action.triggered, show_dialog)
-mw.form.menuTools.addAction(action)
+TOOLS_MENU_ACTION_GUARD_ATTR = "_friend_pack_find_qids_tools_action_registered"
+if (
+    mw is not None
+    and hasattr(mw, "form")
+    and hasattr(mw.form, "menuTools")
+    and not getattr(mw, TOOLS_MENU_ACTION_GUARD_ATTR, False)
+):
+    action = QAction("Find notes UW qids 🌀", mw)
+    qconnect(action.triggered, show_dialog)
+    mw.form.menuTools.addAction(action)
+    setattr(mw, TOOLS_MENU_ACTION_GUARD_ATTR, True)
 
 # =====================  FIND QIDs BROWSER MENU (TRIMMED DROP-IN)  =====================
 # Adds Browser menu actions under top-level Custom:

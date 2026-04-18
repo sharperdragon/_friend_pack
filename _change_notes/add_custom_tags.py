@@ -6,7 +6,7 @@ from typing import Any, TypedDict
 from aqt.qt import QAction, QMenu
 from aqt.utils import showInfo, tooltip
 
-from .config_manager import ConfigManager
+from ..utils.config_manager import ConfigManager
 
 # ! ----------------------------- CONFIG SECTION -----------------------------
 CONFIG_SECTION = "add_custom_tags"
@@ -63,7 +63,7 @@ def _normalize_presets(raw: Any) -> list[TagPreset]:
 def _load_runtime_config(
     menu_label_override: str | None = None,
 ) -> tuple[str, list[TagPreset], str, str]:
-    section_cfg = ConfigManager(CONFIG_SECTION).load()
+    section_cfg = ConfigManager.get_section(CONFIG_SECTION, default={})
     if not isinstance(section_cfg, dict):
         section_cfg = {}
 

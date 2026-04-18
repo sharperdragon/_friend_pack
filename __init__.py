@@ -4,7 +4,7 @@ from __future__ import annotations
 
 # Register top-level config window menu action (defensive: never block addon init).
 try:
-    from .config_window import register_friend_pack_config_menu  # noqa: E402
+    from .utils.config_window import register_friend_pack_config_menu  # noqa: E402
 
     register_friend_pack_config_menu()
 except Exception:

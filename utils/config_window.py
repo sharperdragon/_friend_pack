@@ -200,6 +200,9 @@ class FriendPackConfigDialog(QDialog):
 
         add_missed_tags = section_dict("add_missed_tags")
         if add_missed_tags is not None:
+            expect_string(add_missed_tags, "menu_label", "add_missed_tags.menu_label")
+            expect_string(add_missed_tags, "primary_missed_tag", "add_missed_tags.primary_missed_tag")
+
             defaults = add_missed_tags.get("defaults")
             if defaults is not None:
                 if not isinstance(defaults, dict):
@@ -227,14 +230,65 @@ class FriendPackConfigDialog(QDialog):
                             return None
                         return action_value
 
+                    def validate_prompt_config(container: dict[str, Any], path: str) -> None:
+                        prompt_cfg = container.get("prompt")
+                        if prompt_cfg is None:
+                            return
+                        if not isinstance(prompt_cfg, dict):
+                            errors.append(
+                                f"Invalid `{path}.prompt`: expected object, got {self._type_name(prompt_cfg)}."
+                            )
+                            return
+                        expect_string(prompt_cfg, "kind", f"{path}.prompt.kind")
+                        if (
+                            "kind" in prompt_cfg
+                            and isinstance(prompt_cfg["kind"], str)
+                            and prompt_cfg["kind"] not in {"none", "number", "form"}
+                        ):
+                            errors.append(
+                                f"Invalid `{path}.prompt.kind`: expected one of none|number|form."
+                            )
+                        expect_string(prompt_cfg, "number_style", f"{path}.prompt.number_style")
+                        if (
+                            "number_style" in prompt_cfg
+                            and isinstance(prompt_cfg["number_style"], str)
+                            and prompt_cfg["number_style"] not in {"range_then_number", "number_only"}
+                        ):
+                            errors.append(
+                                f"Invalid `{path}.prompt.number_style`: expected one of range_then_number|number_only."
+                            )
+                        expect_int(prompt_cfg, "range_block_size", f"{path}.prompt.range_block_size")
+                        if "input_items" in prompt_cfg:
+                            expect_string_list(prompt_cfg["input_items"], f"{path}.prompt.input_items")
+
+                    def validate_action_common(action_cfg: dict[str, Any], action_path: str) -> None:
+                        expect_bool(
+                            action_cfg,
+                            "child_of_primary_missed",
+                            f"{action_path}.child_of_primary_missed",
+                        )
+                        expect_bool(
+                            action_cfg,
+                            "add_missed_date_context",
+                            f"{action_path}.add_missed_date_context",
+                        )
+                        expect_string(action_cfg, "tag_segment", f"{action_path}.tag_segment")
+                        if "tag_segments" in action_cfg:
+                            expect_string_list(action_cfg["tag_segments"], f"{action_path}.tag_segments")
+                        if "absolute_tags" in action_cfg:
+                            expect_string_list(action_cfg["absolute_tags"], f"{action_path}.absolute_tags")
+                        validate_prompt_config(action_cfg, action_path)
+
                     base = action_dict("base")
                     if base is not None:
+                        validate_action_common(base, "add_missed_tags.actions.base")
                         expect_string(base, "label", "add_missed_tags.actions.base.label")
                         if "tags" in base:
                             expect_string_list(base["tags"], "add_missed_tags.actions.base.tags")
 
                     uworld = action_dict("uworld")
                     if uworld is not None:
+                        validate_action_common(uworld, "add_missed_tags.actions.uworld")
                         expect_string(uworld, "label", "add_missed_tags.actions.uworld.label")
                         if "base_tags" in uworld:
                             expect_string_list(uworld["base_tags"], "add_missed_tags.actions.uworld.base_tags")
@@ -243,6 +297,7 @@ class FriendPackConfigDialog(QDialog):
 
                     nbme = action_dict("nbme")
                     if nbme is not None:
+                        validate_action_common(nbme, "add_missed_tags.actions.nbme")
                         expect_string(nbme, "label", "add_missed_tags.actions.nbme.label")
                         if "base_tags" in nbme:
                             expect_string_list(nbme["base_tags"], "add_missed_tags.actions.nbme.base_tags")
@@ -250,35 +305,92 @@ class FriendPackConfigDialog(QDialog):
 
                     amboss = action_dict("amboss")
                     if amboss is not None:
+                        validate_action_common(amboss, "add_missed_tags.actions.amboss")
                         expect_string(amboss, "label", "add_missed_tags.actions.amboss.label")
                         expect_string(amboss, "base_tag", "add_missed_tags.actions.amboss.base_tag")
-                        expect_string(amboss, "number_style", "add_missed_tags.actions.amboss.number_style")
-                        expect_bool(amboss, "remove_from_other_menu", "add_missed_tags.actions.amboss.remove_from_other_menu")
+                        expect_string(amboss, "tag_segment", "add_missed_tags.actions.amboss.tag_segment")
 
                     multi_missed = action_dict("multi_missed")
                     if multi_missed is not None:
+                        validate_action_common(multi_missed, "add_missed_tags.actions.multi_missed")
                         expect_string(multi_missed, "label", "add_missed_tags.actions.multi_missed.label")
                         expect_string(multi_missed, "tag_segment", "add_missed_tags.actions.multi_missed.tag_segment")
-
-                    key_info = action_dict("key_info")
-                    if key_info is not None:
-                        expect_string(key_info, "label", "add_missed_tags.actions.key_info.label")
-                        expect_string(key_info, "tag_base", "add_missed_tags.actions.key_info.tag_base")
+                        expect_string(multi_missed, "absolute_tag", "add_missed_tags.actions.multi_missed.absolute_tag")
 
                     correct_guess = action_dict("correct_guess")
                     if correct_guess is not None:
+                        validate_action_common(correct_guess, "add_missed_tags.actions.correct_guess")
                         expect_string(correct_guess, "label", "add_missed_tags.actions.correct_guess.label")
                         if "tags" in correct_guess:
                             expect_string_list(correct_guess["tags"], "add_missed_tags.actions.correct_guess.tags")
 
                     other = action_dict("other")
                     if other is not None:
-                        if "resources" in other:
-                            expect_string_list(other["resources"], "add_missed_tags.actions.other.resources")
-                        expect_string(other, "tag_suffix", "add_missed_tags.actions.other.tag_suffix")
+                        other_path = "add_missed_tags.actions.other"
+                        expect_bool(other, "submenu_bool", f"{other_path}.submenu_bool")
+                        expect_string(other, "submenu_label", f"{other_path}.submenu_label")
+                        if "add_missed_date_context" in other:
+                            errors.append(
+                                "Invalid `add_missed_tags.actions.other.add_missed_date_context`: "
+                                "use `add_missed_tags.actions.other.tagging.add_missed_date_context`."
+                            )
 
-            if "Q_Banks" in add_missed_tags:
-                expect_string_list(add_missed_tags["Q_Banks"], "add_missed_tags.Q_Banks")
+                        if "resources" in other or "tag_suffix" in other:
+                            errors.append(
+                                "Deprecated `add_missed_tags.actions.other.resources/tag_suffix` is no longer supported. "
+                                "Use `add_missed_tags.actions.other.actions` with `add_missed_tags.actions.other.tagging`."
+                            )
+
+                        tagging = other.get("tagging")
+                        if tagging is not None:
+                            if not isinstance(tagging, dict):
+                                errors.append(
+                                    f"Invalid `{other_path}.tagging`: expected object, got {self._type_name(tagging)}."
+                                )
+                            else:
+                                expect_bool(
+                                    tagging,
+                                    "child_of_primary_missed",
+                                    f"{other_path}.tagging.child_of_primary_missed",
+                                )
+                                expect_bool(
+                                    tagging,
+                                    "add_missed_date_context",
+                                    f"{other_path}.tagging.add_missed_date_context",
+                                )
+                                expect_bool(
+                                    tagging,
+                                    "tag_segment_group",
+                                    f"{other_path}.tagging.tag_segment_group",
+                                )
+                                expect_string(
+                                    tagging,
+                                    "group_segment",
+                                    f"{other_path}.tagging.group_segment",
+                                )
+
+                        other_actions = other.get("actions")
+                        if other_actions is not None:
+                            if not isinstance(other_actions, list):
+                                errors.append(
+                                    f"Invalid `{other_path}.actions`: expected array, got {self._type_name(other_actions)}."
+                                )
+                            else:
+                                for idx, other_action in enumerate(other_actions):
+                                    action_path = f"{other_path}.actions[{idx}]"
+                                    if not isinstance(other_action, dict):
+                                        errors.append(
+                                            f"Invalid `{action_path}`: expected object, got {self._type_name(other_action)}."
+                                        )
+                                        continue
+                                    expect_string(other_action, "menu_label", f"{action_path}.menu_label")
+                                    expect_string(other_action, "tag_segment", f"{action_path}.tag_segment")
+                                    if "add_missed_date_context" in other_action:
+                                        errors.append(
+                                            f"Invalid `{action_path}.add_missed_date_context`: per-action override is not supported; "
+                                            "use `add_missed_tags.actions.other.tagging.add_missed_date_context`."
+                                        )
+                                    validate_prompt_config(other_action, action_path)
 
             date_cfg = add_missed_tags.get("date")
             if date_cfg is not None:

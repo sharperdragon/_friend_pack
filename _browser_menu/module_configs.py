@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import copy
-from pathlib import Path
 from typing import Any, Optional
 
 from aqt import mw
 
-from .config_ui import ModuleConfigDialog, FindQidsSettingsDialog
+from .qid_config_ui import FindQidsSettingsDialog
 
 try:
     # Reuse debug logger from loader.py
@@ -16,7 +15,7 @@ except Exception:
         return
 
 try:
-    from ..config_manager import ConfigManager as RootConfigManager
+    from ..utils.config_manager import ConfigManager as RootConfigManager
 except Exception:
     RootConfigManager = None  # type: ignore[assignment]
 
@@ -52,12 +51,27 @@ MODULE_CONFIG_SECTIONS: dict[str, str] = {
 MODULE_CONFIG_DEFAULTS: dict[str, dict[str, Any]] = {
     FIND_QIDS_MODULE_NAME: FIND_QIDS_DEFAULT_CONFIG,
 }
-MODULE_CONFIG_DOC_PATHS: dict[str, str] = {
-    FIND_QIDS_MODULE_NAME: "config.md",
-}
+
+
+def _to_bool(value: Any, fallback: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"1", "true", "yes", "on"}:
+            return True
+        if lowered in {"0", "false", "no", "off", ""}:
+            return False
+    return fallback
 
 
 def _normalize_module_value(module_name: str, key: str, value: Any) -> Any:
+    if module_name == FIND_QIDS_MODULE_NAME and key in {"UW_STEP", "UW_COMLEX", "default_missed_only"}:
+        fallback = bool(FIND_QIDS_DEFAULT_CONFIG.get(key, False))
+        return _to_bool(value, fallback=fallback)
+
     if module_name == FIND_QIDS_MODULE_NAME and key in {"QID_parent_tag", "TAG_PREFIX"}:
         text = str(value or "").strip()
         if text.startswith("tag:re:"):
@@ -80,28 +94,6 @@ def _normalize_module_value(module_name: str, key: str, value: Any) -> Any:
         text = text.strip()
         return text or FIND_QIDS_DEFAULT_CONFIG["MISSED_tag"]
     return copy.deepcopy(value)
-
-
-def _module_md_path(module_name: str) -> Path:
-    base_dir = Path(__file__).resolve().parent
-    mapped_path = MODULE_CONFIG_DOC_PATHS.get(module_name)
-    if mapped_path:
-        return base_dir / mapped_path
-    return base_dir / module_name / "config.md"
-
-
-def _load_markdown(path: Path) -> str:
-    _dbg(f"module_configs: _load_markdown -> {path}")
-    if not path.exists():
-        _dbg(f"module_configs: _load_markdown missing -> {path}")
-        return ""
-    try:
-        text = path.read_text(encoding="utf-8")
-        _dbg(f"module_configs: _load_markdown OK ({path}, length={len(text)})")
-        return text
-    except Exception as e:
-        _dbg(f"module_configs: _load_markdown ERROR ({path}): {e}")
-        return ""
 
 
 def _module_default_config(module_name: str) -> dict[str, Any]:
@@ -178,16 +170,23 @@ def load_module_config(module_name: str) -> dict[str, Any]:
     return merged
 
 
-def save_module_config(module_name: str, new_config: dict[str, Any]) -> None:
+def save_module_config(module_name: str, new_config: dict[str, Any]) -> bool:
+    if not isinstance(new_config, dict):
+        _dbg(
+            f"module_configs: save_module_config skipped for '{module_name}' "
+            "(new_config is not an object)"
+        )
+        return False
+
     if RootConfigManager is None:
         _dbg("module_configs: save_module_config skipped (RootConfigManager unavailable)")
-        return
+        return False
 
     keys = _module_keys(module_name)
     section_name = _module_section(module_name)
     if not keys:
         _dbg(f"module_configs: save_module_config skipped (unknown module '{module_name}')")
-        return
+        return False
 
     overrides = RootConfigManager.load_user_overrides()
     if not isinstance(overrides, dict):
@@ -208,42 +207,21 @@ def save_module_config(module_name: str, new_config: dict[str, Any]) -> None:
                 overrides[key] = _normalize_module_value(module_name, key, new_config[key])
 
     try:
-        RootConfigManager.save_full_config(overrides)
+        ok = RootConfigManager.save_full_config(overrides)
+        if not ok:
+            _dbg(
+                f"module_configs: save_module_config returned False for '{module_name}' "
+                f"(keys={list(keys)})"
+            )
+            return False
         _dbg(
             f"module_configs: save_module_config for '{module_name}' OK "
             f"(saved keys={list(keys)})"
         )
+        return True
     except Exception as e:
         _dbg(f"module_configs: save_module_config ERROR for '{module_name}': {e}")
-
-
-def open_module_config_dialog(module_name: str, title: Optional[str] = None) -> None:
-    """
-    Open a JSON config editor dialog for a supported module.
-
-    Runtime values are loaded from root config.json defaults + profile overrides.
-    """
-    _dbg(f"module_configs: open_module_config_dialog START for '{module_name}'")
-
-    default_cfg = _load_default_config(module_name)
-    merged_cfg = load_module_config(module_name)
-    md_text = _load_markdown(_module_md_path(module_name))
-    window_title = title or f"{module_name} - Config"
-
-    dlg = ModuleConfigDialog(
-        module_name=module_name,
-        merged_config=merged_cfg,
-        default_config=default_cfg,
-        md_text=md_text,
-        title=window_title,
-        parent=mw,
-    )
-
-    _dbg(f"module_configs: open_module_config_dialog EXEC for '{module_name}'")
-    if dlg.exec():
-        new_cfg = dlg.result_config()
-        if new_cfg is not None:
-            save_module_config(module_name, new_cfg)
+        return False
 
 
 def open_find_qids_config(_browser: object) -> None:

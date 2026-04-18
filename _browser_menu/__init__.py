@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import traceback
 
-from aqt import gui_hooks
+from aqt import gui_hooks, mw
 from aqt.browser import Browser
 from aqt.utils import showText
 
@@ -13,6 +13,7 @@ from aqt.utils import showText
 # Compatibility constants
 # =========================
 BROWSER_MENUS_INIT_HOOK_NAME = "browser_menus_did_init"
+BROWSER_MENUS_INIT_GUARD_ATTR = "_friend_pack_browser_menu_hook_registered"
 
 
 # ! Try to import the debug helper _dbg from loader; fall back to a no-op if missing.
@@ -54,8 +55,14 @@ def _register_browser_menu_hook() -> bool:
         )
         return False
 
+    if mw is not None and getattr(mw, BROWSER_MENUS_INIT_GUARD_ATTR, False):
+        _dbg("init: browser menu hook already registered")
+        return True
+
     try:
         hook.append(_on_browser_menus_did_init)
+        if mw is not None:
+            setattr(mw, BROWSER_MENUS_INIT_GUARD_ATTR, True)
         _dbg("init: browser menu hook registered")
         return True
     except Exception:

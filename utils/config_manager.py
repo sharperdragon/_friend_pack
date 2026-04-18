@@ -19,6 +19,31 @@ except Exception:  # pragma: no cover - defensive import fallback
 FALLBACK_ADDON_NAME = "_friend_pack"
 DEFAULT_CONFIG_FILENAME = "config.json"
 DEFAULT_CONFIG_DOC_FILENAME = "config.md"
+DEFAULT_CONFIG_FALLBACK: dict[str, Any] = {
+    "add_custom_tags": {
+        "submenu_label": "Custom Tags",
+        "presets": [],
+    },
+    "add_missed_tags": {
+        "menu_label": "Missed Tags",
+        "primary_missed_tag": "##Missed-Qs",
+        "date": {
+            "include_day_segment": True,
+        },
+        "actions": {},
+    },
+    "browser_menu": {
+        "top_menu_title": "Custom",
+    },
+    "find_QIDs": {
+        "UW_STEP": False,
+        "UW_COMLEX": False,
+        "QID_parent_tag": "",
+        "TAG_PREFIX": r"\bUWorld::\w+::",
+        "MISSED_tag": "##Missed-Qs",
+        "default_missed_only": False,
+    },
+}
 
 
 def _resolve_addon_name() -> str:
@@ -33,19 +58,32 @@ class ConfigManager:
     """Top-level config manager for _friend_pack defaults + overrides."""
 
     ADDON_NAME = _resolve_addon_name()
-    ROOT_DIR = Path(__file__).resolve().parent
-    DEFAULT_CONFIG_PATH = ROOT_DIR / DEFAULT_CONFIG_FILENAME
-    DEFAULT_DOC_PATH = ROOT_DIR / DEFAULT_CONFIG_DOC_FILENAME
+    PACKAGE_DIR = Path(__file__).resolve().parent
+    ADDON_ROOT_DIR = PACKAGE_DIR.parent
+    DEFAULT_CONFIG_PATH = ADDON_ROOT_DIR / DEFAULT_CONFIG_FILENAME
+    DEFAULT_DOC_PATH = ADDON_ROOT_DIR / DEFAULT_CONFIG_DOC_FILENAME
+
+    @staticmethod
+    def _ensure_json_object(value: Any) -> dict[str, Any]:
+        return value if isinstance(value, dict) else {}
 
     @classmethod
     def _read_json_file(cls, path: Path) -> dict[str, Any]:
-        if not path.exists():
+        if not path.exists() or not path.is_file():
             return {}
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except Exception:
             return {}
-        return data if isinstance(data, dict) else {}
+        return cls._ensure_json_object(data)
+
+    @classmethod
+    def _sanitize_default_config(cls, raw: dict[str, Any]) -> dict[str, Any]:
+        merged = cls.deep_merge_dicts(DEFAULT_CONFIG_FALLBACK, cls._ensure_json_object(raw))
+        for section_name, section_default in DEFAULT_CONFIG_FALLBACK.items():
+            if isinstance(section_default, dict) and not isinstance(merged.get(section_name), dict):
+                merged[section_name] = copy.deepcopy(section_default)
+        return merged
 
     @classmethod
     def _addon_manager_available(cls) -> bool:
@@ -78,7 +116,8 @@ class ConfigManager:
     @classmethod
     def load_default_config(cls) -> dict[str, Any]:
         """Load shipped defaults from root config.json."""
-        return cls._read_json_file(cls.DEFAULT_CONFIG_PATH)
+        raw = cls._read_json_file(cls.DEFAULT_CONFIG_PATH)
+        return cls._sanitize_default_config(raw)
 
     @classmethod
     def load_user_overrides(cls) -> dict[str, Any]:
@@ -92,7 +131,8 @@ class ConfigManager:
         except Exception:
             return {}
 
-        return data if isinstance(data, dict) else {}
+        # Defensive copy so callers never mutate addon-manager-owned objects in place.
+        return copy.deepcopy(cls._ensure_json_object(data))
 
     @classmethod
     def load_effective_config(cls) -> dict[str, Any]:
@@ -115,12 +155,18 @@ class ConfigManager:
         if not isinstance(new_config, dict):
             raise ValueError("Top-level config must be a JSON object.")
 
+        # Ensure config can be serialized as JSON before attempting write.
+        try:
+            json.dumps(new_config, ensure_ascii=False)
+        except Exception:
+            return False
+
         addon_manager = cls._get_addon_manager()
         if addon_manager is None:
             return False
 
         try:
-            addon_manager.writeConfig(cls.ADDON_NAME, new_config)
+            addon_manager.writeConfig(cls.ADDON_NAME, copy.deepcopy(new_config))
             return True
         except Exception:
             return False
@@ -133,9 +179,10 @@ class ConfigManager:
         if not isinstance(section_config, dict):
             raise ValueError("Section config must be a JSON object.")
 
-        next_config = cls.load_effective_config()
-        next_config[section] = copy.deepcopy(section_config)
-        return cls.save_full_config(next_config)
+        # Save section changes into user overrides only (do not persist full defaults).
+        next_overrides = cls.load_user_overrides()
+        next_overrides[section] = copy.deepcopy(section_config)
+        return cls.save_full_config(next_overrides)
 
     @classmethod
     def reset_overrides(cls) -> bool:

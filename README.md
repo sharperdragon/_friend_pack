@@ -118,3 +118,22 @@ The final folder structure should look like this:
 
 ```text
 .../addons21/_friend_pack/__init__.py
+```
+
+---
+
+### Option 2: Packaged `.ankiaddon` Install (Recommended for Shipping)
+
+Use this method for distribution to end users.
+
+#### Steps
+
+1. Build `_friend_pack.ankiaddon` from this repository.
+2. In Anki, install the `.ankiaddon` package.
+3. Restart Anki.
+
+#### Release behavior note
+
+- Local source installs may keep `meta.json` state from the developer machine.
+- The packaged `.ankiaddon` release path intentionally excludes `meta.json`, so shipped installs are not tied to local disabled state.
+- For end-user distribution, ship the `.ankiaddon` artifact rather than copying the raw source folder.

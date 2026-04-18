@@ -12,7 +12,7 @@ from aqt.qt import QApplication
 from aqt.utils import tooltip, showWarning
 
 try:
-    from ..config_manager import ConfigManager as RootConfigManager
+    from ..utils.config_manager import ConfigManager as RootConfigManager
 except Exception:  # pragma: no cover - defensive import fallback
     RootConfigManager = None  # type: ignore[assignment]
 

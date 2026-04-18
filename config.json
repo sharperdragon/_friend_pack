@@ -15,67 +15,95 @@
     ]
   },
   "add_missed_tags": {
-    "defaults": {
-      "menu_label": "Missed Tags ❌"
-    },
+    "menu_label": "Missed Tags ❌",
+    "primary_missed_tag": "##Missed-Qs",
     "date": {
       "include_day_segment": true
     },
     "actions": {
       "base": {
-        "label": "♦️Base",
-        "tags": [
+        "label": "♦️ Base",
+        "child_of_primary_missed": false,
+        "absolute_tags": [
           "##Missed-Qs"
-        ]
+        ],
+        "add_missed_date_context": false
       },
       "uworld": {
-        "label": "🛃UWorld",
-        "base_tags": [
-          "##Missed-Qs::UW_Tests"
-        ],
-        "default_tag_prefix": "UW_Tests",
-        "test_range_block_size": 25
+        "label": "🗺️ UWorld",
+        "child_of_primary_missed": true,
+        "tag_segment": "UW_Tests",
+        "add_missed_date_context": true,
+        "prompt": {
+          "kind": "number",
+          "number_style": "range_then_number",
+          "range_block_size": 25
+        }
       },
       "multi_missed": {
         "label": "2x Missed 📌",
-        "tag_segment": "2x"
+        "child_of_primary_missed": true,
+        "tag_segment": "2x",
+        "add_missed_date_context": true
       },
       "nbme": {
         "label": "🧠 NBME",
-        "base_tags": [
-          "##Missed-Qs::NBME"
-        ],
-        "default_tag_prefix": "NBME"
+        "child_of_primary_missed": true,
+        "tag_segment": "NBME",
+        "add_missed_date_context": true,
+        "prompt": {
+          "kind": "form",
+          "input_items": [
+            "Form"
+          ],
+          "number_style": "number_only"
+        }
       },
       "amboss": {
         "label": "🦠 Amboss",
-        "base_tag": "##Missed-Qs::Amboss",
-        "number_style": "number_only",
-        "remove_from_other_menu": true
-      },
-      "key_info": {
-        "label": "Key Info 🗝️",
-        "tag_base": "#Custom::#KEY"
+        "child_of_primary_missed": true,
+        "tag_segment": "Amboss",
+        "add_missed_date_context": true,
+        "prompt": {
+          "kind": "number",
+          "number_style": "number_only"
+        }
       },
       "correct_guess": {
         "label": "Guessed Correct 🎫",
-        "tags": [
+        "child_of_primary_missed": false,
+        "absolute_tags": [
           "#Custom::correct_marked"
-        ]
+        ],
+        "add_missed_date_context": false
       },
       "other": {
-        "resources": [
-          "Kaplan",
-          "True-Learn"
-        ],
-        "tag_suffix": "Other"
+        "submenu_bool": true,
+        "submenu_label": "Other",
+        "tagging": {
+          "child_of_primary_missed": true,
+          "add_missed_date_context": false,
+          "tag_segment_group": true,
+          "group_segment": "Other"
+        },
+        "actions": [
+          {
+            "menu_label": "Kaplan 🟣",
+            "tag_segment": "Kaplan",
+            "prompt": {
+              "kind": "none"
+            }
+          },
+          {
+            "menu_label": "True-learn 🌀",
+            "tag_segment": "True-learn",
+            "prompt": {
+              "kind": "none"
+            }
+          }
+        ]
       }
-    },
-    "Q_Banks": [
-      "UWORLD",
-      "NBME",
-      "AMBOSS"
-    ]
+    }
   },
   "browser_menu": {
     "top_menu_title": "Custom"

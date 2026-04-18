@@ -5,7 +5,7 @@ from aqt.qt import QAction, QMenu, QMenuBar
 # ========== DEBUG IMPORT ==========
 try:
     # Reuse the add-on's debug logger from loader.py if available
-    from .loader import _dbg  # type: ignore[attr-defined]
+    from .._browser_menu.loader import _dbg  # type: ignore[attr-defined]
 except Exception:
     # Fallback: no-op debug function if loader._dbg is not available yet
     def _dbg(msg: str) -> None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fnmatch import fnmatch
+import json
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -28,17 +29,32 @@ EXCLUDED_DIR_NAMES = {
 }
 EXCLUDED_FILE_NAMES = {
     ".DS_Store",
+    ".gitignore",
     "Thumbs.db",
     "Install_Friend_Pack.command",
     "_browser_menu_debug.log",
     "build_ankiweb_package.py",
     "meta.json",
+    "planned_update_config.json",
     "pyrightconfig.json",
 }
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
 EXCLUDED_GLOB_PATTERNS = {
     "*.log",
 }
+BANNED_ARCHIVE_ENTRIES = frozenset(
+    {
+        "meta.json",
+        "planned_update_config.json",
+    }
+)
+REQUIRED_CONFIG_FILENAME = "config.json"
+REQUIRED_CONFIG_OBJECT_SECTIONS = (
+    "add_custom_tags",
+    "add_missed_tags",
+    "browser_menu",
+    "find_QIDs",
+)
 
 
 def _is_excluded(rel_path: Path) -> bool:
@@ -68,7 +84,38 @@ def _iter_release_files(root: Path) -> list[Path]:
     return sorted(files)
 
 
+def _assert_archive_has_no_banned_entries(archive_path: Path) -> None:
+    with ZipFile(archive_path, "r") as archive:
+        names = set(archive.namelist())
+    banned_found = sorted(names.intersection(BANNED_ARCHIVE_ENTRIES))
+    if banned_found:
+        raise RuntimeError(
+            "Release archive contains banned entries: "
+            + ", ".join(banned_found)
+        )
+
+
+def _assert_config_json_is_valid(root: Path) -> None:
+    config_path = root / REQUIRED_CONFIG_FILENAME
+    if not config_path.exists() or not config_path.is_file():
+        raise RuntimeError(f"Missing required config file: {REQUIRED_CONFIG_FILENAME}")
+    try:
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise RuntimeError(f"Invalid {REQUIRED_CONFIG_FILENAME}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise RuntimeError(f"Invalid {REQUIRED_CONFIG_FILENAME}: top-level JSON must be an object.")
+    for section in REQUIRED_CONFIG_OBJECT_SECTIONS:
+        section_value = data.get(section)
+        if not isinstance(section_value, dict):
+            raise RuntimeError(
+                f"Invalid {REQUIRED_CONFIG_FILENAME}: `{section}` must be a JSON object."
+            )
+
+
 def build_archive() -> Path:
+    _assert_config_json_is_valid(ADDON_ROOT)
+
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     archive_path = OUTPUT_DIR / OUTPUT_FILENAME
 
@@ -87,6 +134,7 @@ def build_archive() -> Path:
             rel = path.relative_to(ADDON_ROOT)
             archive.write(path, arcname=rel.as_posix())
 
+    _assert_archive_has_no_banned_entries(archive_path)
     return archive_path
 
 

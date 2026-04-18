@@ -7,12 +7,9 @@ from aqt.qt import QMenu
 from .add_custom_tags import add_custom_tag_menu_items
 from . import add_missed_tags as missed_tags_module
 
-CUSTOM_TAGS_MENU_LABEL = "Custom Tags"
-TRUE_LEARN_RESOURCE_LABEL = "True-Learn"
-
 
 def add_limited_missed_tag_menu_items(browser, menu):
-    """Render only the six allowed Missed Tags actions for the export addon."""
+    """Render the limited Missed Tags actions for the export addon."""
     missed_tags_module._reload_runtime_config()
 
     tag_menu = QMenu(missed_tags_module.MISSED_TAGS_MENU_LABEL, browser)
@@ -31,17 +28,13 @@ def add_limited_missed_tag_menu_items(browser, menu):
     )
 
     missed_tags_module.add_uworld_tags(browser, tag_menu)
+    missed_tags_module.add_nbme_tag(browser, tag_menu)
     missed_tags_module.add_amboss_tag(browser, tag_menu)
     missed_tags_module.add_base_plain_action(browser, tag_menu)
     missed_tags_module.add_multi_tag(browser, tag_menu)
     missed_tags_module.add_correct_guess_action(browser, tag_menu)
 
-    original_resources = list(missed_tags_module.OTHER_RESOURCES)
-    try:
-        missed_tags_module.OTHER_RESOURCES = [TRUE_LEARN_RESOURCE_LABEL]
-        missed_tags_module.add_other_resources_actions(browser, tag_menu)
-    finally:
-        missed_tags_module.OTHER_RESOURCES = original_resources
+    missed_tags_module.add_other_resources_actions(browser, tag_menu)
 
     if tag_menu.actions():
         menu.addSeparator()
@@ -53,7 +46,7 @@ def on_browser_will_show_context_menu(browser: Browser, menu):
         return
 
     add_limited_missed_tag_menu_items(browser, menu)
-    add_custom_tag_menu_items(browser, menu, menu_label=CUSTOM_TAGS_MENU_LABEL)
+    add_custom_tag_menu_items(browser, menu)
 
 
 if not getattr(mw, "_change_notes_shua_menu_injected", False):

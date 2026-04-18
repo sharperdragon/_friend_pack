@@ -14,10 +14,10 @@ from aqt.browser import Browser
 from aqt.qt import QMenu
 
 from .module_configs import open_find_qids_config
-from .menu_utils import add_action
+from ..utils.menu_utils import add_action
 
 try:
-    from ..config_manager import ConfigManager as RootConfigManager
+    from ..utils.config_manager import ConfigManager as RootConfigManager
 except Exception:
     RootConfigManager = None  # type: ignore[assignment]
 
