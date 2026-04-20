@@ -27,9 +27,8 @@ DEFAULT_CONFIG_FALLBACK: dict[str, Any] = {
     "add_missed_tags": {
         "menu_label": "Missed Tags",
         "primary_missed_tag": "##Missed-Qs",
-        "date": {
-            "include_day_segment": True,
-        },
+        "include_day_segment": True,
+        "action_defaults": {},
         "actions": {},
     },
     "browser_menu": {
@@ -39,7 +38,6 @@ DEFAULT_CONFIG_FALLBACK: dict[str, Any] = {
         "UW_STEP": False,
         "UW_COMLEX": False,
         "QID_parent_tag": "",
-        "TAG_PREFIX": r"\bUWorld::\w+::",
         "MISSED_tag": "##Missed-Qs",
         "default_missed_only": False,
     },

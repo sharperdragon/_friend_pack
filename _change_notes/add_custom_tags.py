@@ -6,6 +6,7 @@ from typing import Any, TypedDict
 from aqt.qt import QAction, QMenu
 from aqt.utils import showInfo, tooltip
 
+from ..menu_styles import build_custom_tags_menu_stylesheet
 from ..utils.config_manager import ConfigManager
 
 # ! ----------------------------- CONFIG SECTION -----------------------------
@@ -25,7 +26,7 @@ CONFIG_KEY_PRESETS = "presets"
 
 
 class TagPreset(TypedDict):
-    label: str
+    menu_label: str
     tags: list[str]
 
 
@@ -50,12 +51,12 @@ def _normalize_presets(raw: Any) -> list[TagPreset]:
         if not isinstance(preset, dict):
             continue
 
-        label = str(preset.get("label", "")).strip()
+        menu_label = str(preset.get("menu_label", preset.get("label", ""))).strip()
         tags = _to_string_list(preset.get("tags", []))
-        if not label or not tags:
+        if not menu_label or not tags:
             continue
 
-        normalized.append({"label": label, "tags": tags})
+        normalized.append({"menu_label": menu_label, "tags": tags})
 
     return normalized
 
@@ -148,12 +149,15 @@ def add_custom_tag_menu_items(
         return
 
     custom_menu = QMenu(submenu_label, browser)
+    custom_menu_stylesheet = build_custom_tags_menu_stylesheet()
+    if custom_menu_stylesheet:
+        custom_menu.setStyleSheet(custom_menu_stylesheet)
 
     for preset in presets:
-        label = preset["label"]
+        menu_label = preset["menu_label"]
         tags = list(preset["tags"])
 
-        action = QAction(label, browser)
+        action = QAction(menu_label, browser)
         action.triggered.connect(
             lambda _=None, preset_tags=tags: _apply_tags_to_selected_notes(
                 browser,

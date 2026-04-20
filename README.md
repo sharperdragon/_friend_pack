@@ -98,15 +98,25 @@ This add-on may **not** be a good fit if:
 
 ---
 
+## Compatibility
+
+- **Tested target:** Anki Desktop `25.09` (Qt6)
+- **Intended runtime:** modern Anki Desktop 25.x
+- **Not supported:** AnkiMobile, AnkiDroid, and AnkiWeb clients
+
+If you plan to claim support outside 25.x, validate on those versions and update this section before publishing.
+
+---
+
 ## Installation
 
-Friend Pack can be installed either as a local add-on folder or as a packaged `.ankiaddon` file.
+For end users, ship and install Friend Pack as a packaged `.ankiaddon` file.
 
 ---
 
 ### Option 1: Local Folder Install
 
-Use this method if you are manually managing the add-on source folder yourself.
+Use this only for local development workflows.
 
 #### Steps
 
@@ -134,6 +144,27 @@ Use this method for distribution to end users.
 
 #### Release behavior note
 
-- Local source installs may keep `meta.json` state from the developer machine.
+- Local source installs can keep `meta.json` state from the developer machine (including disabled state).
 - The packaged `.ankiaddon` release path intentionally excludes `meta.json`, so shipped installs are not tied to local disabled state.
 - For end-user distribution, ship the `.ankiaddon` artifact rather than copying the raw source folder.
+
+---
+
+## Publishing Checklist
+
+Run this before upload/distribution:
+
+1. Build `dist/_friend_pack.ankiaddon`.
+2. Verify archive root is flat (no top-level `_friend_pack/` folder inside the zip).
+3. Verify archive excludes `meta.json`.
+4. Verify archive excludes `planned_update_config.json`.
+5. Verify archive excludes `__pycache__/` and `*.pyc`.
+6. Verify archive includes `__init__.py`, `config.json`, `config.md`, and all runtime module files.
+7. Smoke-test the `.ankiaddon` on a clean profile and verify startup load, Browser menu actions, right-click note actions, and Add-ons -> Config behavior.
+
+---
+
+## Distribution Notes
+
+- **AnkiWeb distribution:** `.ankiaddon` is sufficient.
+- **Outside AnkiWeb distribution:** include `manifest.json` in the package root.

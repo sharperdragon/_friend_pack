@@ -132,7 +132,7 @@ class MissedQIDDialog(QDialog):
         layout.addWidget(QLabel("Paste UWorld question IDs (comma-separated):"))
         layout.addWidget(self.qid_input)
 
-        missed_label = "##Missed-Qs filter"
+        missed_label = "Missed Tag Filter"
         # * Config-driven default for the missed-only toggle
         try:
             cfg = get_config()

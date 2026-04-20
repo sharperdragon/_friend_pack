@@ -155,6 +155,19 @@ class FriendPackConfigDialog(QDialog):
                     f"Invalid `{path}`: expected string, got {self._type_name(container[key])}."
                 )
 
+        def expect_string_alias(
+            container: dict[str, Any],
+            *,
+            primary_key: str,
+            legacy_key: str,
+            path_prefix: str,
+        ) -> None:
+            if primary_key in container:
+                expect_string(container, primary_key, f"{path_prefix}.{primary_key}")
+                return
+            if legacy_key in container:
+                expect_string(container, legacy_key, f"{path_prefix}.{legacy_key}")
+
         def expect_bool(container: dict[str, Any], key: str, path: str) -> None:
             if key in container and type(container[key]) is not bool:
                 errors.append(
@@ -194,7 +207,12 @@ class FriendPackConfigDialog(QDialog):
                                 f"Invalid `add_custom_tags.presets[{idx}]`: expected object, got {self._type_name(preset)}."
                             )
                             continue
-                        expect_string(preset, "label", f"add_custom_tags.presets[{idx}].label")
+                        expect_string_alias(
+                            preset,
+                            primary_key="menu_label",
+                            legacy_key="label",
+                            path_prefix=f"add_custom_tags.presets[{idx}]",
+                        )
                         if "tags" in preset:
                             expect_string_list(preset["tags"], f"add_custom_tags.presets[{idx}].tags")
 
@@ -202,6 +220,7 @@ class FriendPackConfigDialog(QDialog):
         if add_missed_tags is not None:
             expect_string(add_missed_tags, "menu_label", "add_missed_tags.menu_label")
             expect_string(add_missed_tags, "primary_missed_tag", "add_missed_tags.primary_missed_tag")
+            expect_bool(add_missed_tags, "include_day_segment", "add_missed_tags.include_day_segment")
 
             defaults = add_missed_tags.get("defaults")
             if defaults is not None:
@@ -211,6 +230,76 @@ class FriendPackConfigDialog(QDialog):
                     )
                 else:
                     expect_string(defaults, "menu_label", "add_missed_tags.defaults.menu_label")
+
+            action_defaults = add_missed_tags.get("action_defaults")
+            if action_defaults is not None:
+                if not isinstance(action_defaults, dict):
+                    errors.append(
+                        f"Invalid `add_missed_tags.action_defaults`: expected object, got {self._type_name(action_defaults)}."
+                    )
+                else:
+                    expect_bool(
+                        action_defaults,
+                        "include_day_segment",
+                        "add_missed_tags.action_defaults.include_day_segment",
+                    )
+                    expect_bool(
+                        action_defaults,
+                        "add_missed_date_context",
+                        "add_missed_tags.action_defaults.add_missed_date_context",
+                    )
+                    expect_bool(
+                        action_defaults,
+                        "child_of_primary_missed",
+                        "add_missed_tags.action_defaults.child_of_primary_missed",
+                    )
+
+                    action_defaults_prompt = action_defaults.get("prompt")
+                    if action_defaults_prompt is not None:
+                        if not isinstance(action_defaults_prompt, dict):
+                            errors.append(
+                                "Invalid `add_missed_tags.action_defaults.prompt`: expected object, "
+                                f"got {self._type_name(action_defaults_prompt)}."
+                            )
+                        else:
+                            expect_string(
+                                action_defaults_prompt,
+                                "kind",
+                                "add_missed_tags.action_defaults.prompt.kind",
+                            )
+                            if (
+                                "kind" in action_defaults_prompt
+                                and isinstance(action_defaults_prompt["kind"], str)
+                                and action_defaults_prompt["kind"] not in {"none", "number", "form"}
+                            ):
+                                errors.append(
+                                    "Invalid `add_missed_tags.action_defaults.prompt.kind`: "
+                                    "expected one of none|number|form."
+                                )
+                            expect_string(
+                                action_defaults_prompt,
+                                "number_style",
+                                "add_missed_tags.action_defaults.prompt.number_style",
+                            )
+                            if (
+                                "number_style" in action_defaults_prompt
+                                and isinstance(action_defaults_prompt["number_style"], str)
+                                and action_defaults_prompt["number_style"] not in {"range_then_number", "number_only"}
+                            ):
+                                errors.append(
+                                    "Invalid `add_missed_tags.action_defaults.prompt.number_style`: "
+                                    "expected one of range_then_number|number_only."
+                                )
+                            expect_int(
+                                action_defaults_prompt,
+                                "range_block_size",
+                                "add_missed_tags.action_defaults.prompt.range_block_size",
+                            )
+                            if "input_items" in action_defaults_prompt:
+                                expect_string_list(
+                                    action_defaults_prompt["input_items"],
+                                    "add_missed_tags.action_defaults.prompt.input_items",
+                                )
 
             actions = add_missed_tags.get("actions")
             if actions is not None:
@@ -282,14 +371,24 @@ class FriendPackConfigDialog(QDialog):
                     base = action_dict("base")
                     if base is not None:
                         validate_action_common(base, "add_missed_tags.actions.base")
-                        expect_string(base, "label", "add_missed_tags.actions.base.label")
+                        expect_string_alias(
+                            base,
+                            primary_key="menu_label",
+                            legacy_key="label",
+                            path_prefix="add_missed_tags.actions.base",
+                        )
                         if "tags" in base:
                             expect_string_list(base["tags"], "add_missed_tags.actions.base.tags")
 
                     uworld = action_dict("uworld")
                     if uworld is not None:
                         validate_action_common(uworld, "add_missed_tags.actions.uworld")
-                        expect_string(uworld, "label", "add_missed_tags.actions.uworld.label")
+                        expect_string_alias(
+                            uworld,
+                            primary_key="menu_label",
+                            legacy_key="label",
+                            path_prefix="add_missed_tags.actions.uworld",
+                        )
                         if "base_tags" in uworld:
                             expect_string_list(uworld["base_tags"], "add_missed_tags.actions.uworld.base_tags")
                         expect_string(uworld, "default_tag_prefix", "add_missed_tags.actions.uworld.default_tag_prefix")
@@ -298,7 +397,12 @@ class FriendPackConfigDialog(QDialog):
                     nbme = action_dict("nbme")
                     if nbme is not None:
                         validate_action_common(nbme, "add_missed_tags.actions.nbme")
-                        expect_string(nbme, "label", "add_missed_tags.actions.nbme.label")
+                        expect_string_alias(
+                            nbme,
+                            primary_key="menu_label",
+                            legacy_key="label",
+                            path_prefix="add_missed_tags.actions.nbme",
+                        )
                         if "base_tags" in nbme:
                             expect_string_list(nbme["base_tags"], "add_missed_tags.actions.nbme.base_tags")
                         expect_string(nbme, "default_tag_prefix", "add_missed_tags.actions.nbme.default_tag_prefix")
@@ -306,21 +410,36 @@ class FriendPackConfigDialog(QDialog):
                     amboss = action_dict("amboss")
                     if amboss is not None:
                         validate_action_common(amboss, "add_missed_tags.actions.amboss")
-                        expect_string(amboss, "label", "add_missed_tags.actions.amboss.label")
+                        expect_string_alias(
+                            amboss,
+                            primary_key="menu_label",
+                            legacy_key="label",
+                            path_prefix="add_missed_tags.actions.amboss",
+                        )
                         expect_string(amboss, "base_tag", "add_missed_tags.actions.amboss.base_tag")
                         expect_string(amboss, "tag_segment", "add_missed_tags.actions.amboss.tag_segment")
 
                     multi_missed = action_dict("multi_missed")
                     if multi_missed is not None:
                         validate_action_common(multi_missed, "add_missed_tags.actions.multi_missed")
-                        expect_string(multi_missed, "label", "add_missed_tags.actions.multi_missed.label")
+                        expect_string_alias(
+                            multi_missed,
+                            primary_key="menu_label",
+                            legacy_key="label",
+                            path_prefix="add_missed_tags.actions.multi_missed",
+                        )
                         expect_string(multi_missed, "tag_segment", "add_missed_tags.actions.multi_missed.tag_segment")
                         expect_string(multi_missed, "absolute_tag", "add_missed_tags.actions.multi_missed.absolute_tag")
 
                     correct_guess = action_dict("correct_guess")
                     if correct_guess is not None:
                         validate_action_common(correct_guess, "add_missed_tags.actions.correct_guess")
-                        expect_string(correct_guess, "label", "add_missed_tags.actions.correct_guess.label")
+                        expect_string_alias(
+                            correct_guess,
+                            primary_key="menu_label",
+                            legacy_key="label",
+                            path_prefix="add_missed_tags.actions.correct_guess",
+                        )
                         if "tags" in correct_guess:
                             expect_string_list(correct_guess["tags"], "add_missed_tags.actions.correct_guess.tags")
 
@@ -392,15 +511,16 @@ class FriendPackConfigDialog(QDialog):
                                         )
                                     validate_prompt_config(other_action, action_path)
 
-            date_cfg = add_missed_tags.get("date")
-            if date_cfg is not None:
-                if not isinstance(date_cfg, dict):
+            # Legacy compatibility for older config shape.
+            legacy_date_cfg = add_missed_tags.get("date")
+            if legacy_date_cfg is not None:
+                if not isinstance(legacy_date_cfg, dict):
                     errors.append(
-                        f"Invalid `add_missed_tags.date`: expected object, got {self._type_name(date_cfg)}."
+                        f"Invalid `add_missed_tags.date`: expected object, got {self._type_name(legacy_date_cfg)}."
                     )
                 else:
                     expect_bool(
-                        date_cfg,
+                        legacy_date_cfg,
                         "include_day_segment",
                         "add_missed_tags.date.include_day_segment",
                     )
@@ -414,7 +534,6 @@ class FriendPackConfigDialog(QDialog):
             expect_bool(find_qids, "UW_STEP", "find_QIDs.UW_STEP")
             expect_bool(find_qids, "UW_COMLEX", "find_QIDs.UW_COMLEX")
             expect_string(find_qids, "QID_parent_tag", "find_QIDs.QID_parent_tag")
-            expect_string(find_qids, "TAG_PREFIX", "find_QIDs.TAG_PREFIX")
             expect_string(find_qids, "MISSED_tag", "find_QIDs.MISSED_tag")
             expect_bool(find_qids, "default_missed_only", "find_QIDs.default_missed_only")
 

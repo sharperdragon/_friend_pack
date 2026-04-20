@@ -25,14 +25,13 @@ CONFIG_SECTION_FIND_QIDS = "find_QIDs"
 CONFIG_KEY_UW_STEP = "UW_STEP"
 CONFIG_KEY_UW_COMLEX = "UW_COMLEX"
 CONFIG_KEY_QID_PARENT_TAG = "QID_parent_tag"
-CONFIG_KEY_TAG_PREFIX = "TAG_PREFIX"
 CONFIG_KEY_MISSED_TAG = "MISSED_tag"
 CONFIG_KEY_DEFAULT_MISSED_ONLY = "default_missed_only"
 
 DEFAULT_UW_STEP = False
 DEFAULT_UW_COMLEX = False
 DEFAULT_QID_PARENT_TAG = ""
-DEFAULT_TAG_PREFIX = r"\bUWorld::\w+::"
+DEFAULT_FALLBACK_QID_PARENT = r"\bUWorld::\w+::"
 DEFAULT_MISSED_TAG = "##Missed-Qs"
 DEFAULT_MISSED_ONLY = False
 
@@ -46,7 +45,7 @@ COLLECTION_FIND_NOTES_METHODS = ("find_notes", "findNotes")
 SUPPRESS_MISSING_TOOLTIP_ON_UNKNOWN_LOOKUP = True
 
 # Legacy-to-current normalization for the UWorld fallback expression.
-LEGACY_TAG_PREFIX_MIGRATIONS = {
+LEGACY_FALLBACK_QID_PARENT_MIGRATIONS = {
     "#UWorld::\\w+": r"\bUWorld::\w+",
     "#UWORLD::\\w+": r"\bUWorld::\w+",
 }
@@ -56,7 +55,6 @@ _DEFAULTS: Dict[str, Any] = {
     CONFIG_KEY_UW_STEP: DEFAULT_UW_STEP,
     CONFIG_KEY_UW_COMLEX: DEFAULT_UW_COMLEX,
     CONFIG_KEY_QID_PARENT_TAG: DEFAULT_QID_PARENT_TAG,
-    CONFIG_KEY_TAG_PREFIX: DEFAULT_TAG_PREFIX,
     CONFIG_KEY_MISSED_TAG: DEFAULT_MISSED_TAG,
     CONFIG_KEY_DEFAULT_MISSED_ONLY: DEFAULT_MISSED_ONLY,
 }
@@ -105,9 +103,9 @@ def normalize_parent_tag_expr(value: Any, fallback: str = "") -> str:
     return text
 
 
-def _normalize_legacy_tag_prefix(value: str) -> str:
-    """Map historical TAG_PREFIX values to the current canonical regex parent."""
-    return LEGACY_TAG_PREFIX_MIGRATIONS.get(value, value)
+def _normalize_legacy_fallback_parent(value: str) -> str:
+    """Map historical fallback parent values to the current canonical regex parent."""
+    return LEGACY_FALLBACK_QID_PARENT_MIGRATIONS.get(value, value)
 
 
 def _ensure_regex_end_anchor(pattern: str) -> str:
@@ -154,7 +152,6 @@ def get_config() -> Dict[str, Any]:
     dict with at least:
       - UW_STEP/UW_COMLEX (bool)
       - QID_parent_tag (str, raw parent expression)
-      - TAG_PREFIX (str, raw parent expression)
       - MISSED_tag (raw tag text)
     """
     source = _load_effective_root_config()
@@ -174,12 +171,6 @@ def get_config() -> Dict[str, Any]:
     cfg[CONFIG_KEY_QID_PARENT_TAG] = normalize_parent_tag_expr(
         section_cfg.get(CONFIG_KEY_QID_PARENT_TAG, _DEFAULTS[CONFIG_KEY_QID_PARENT_TAG]),
         fallback=DEFAULT_QID_PARENT_TAG,
-    )
-    cfg[CONFIG_KEY_TAG_PREFIX] = _normalize_legacy_tag_prefix(
-        normalize_parent_tag_expr(
-            section_cfg.get(CONFIG_KEY_TAG_PREFIX, _DEFAULTS[CONFIG_KEY_TAG_PREFIX]),
-            fallback=DEFAULT_TAG_PREFIX,
-        )
     )
     cfg[CONFIG_KEY_MISSED_TAG] = _normalize_missed_tag(
         section_cfg.get(CONFIG_KEY_MISSED_TAG, _DEFAULTS[CONFIG_KEY_MISSED_TAG])
@@ -272,7 +263,7 @@ def qid_to_tag(qid: Union[str, int], prefix: Optional[str] = None, regex: bool =
     Parameters
     ----------
     qid    : str|int    -> the numeric id
-    prefix : Optional   -> override TAG_PREFIX fallback only
+    prefix : Optional   -> override built-in fallback parent only
     regex  : bool       -> if True, returns 'tag:re:<parent>::<qid>$'
                            else       returns 'tag:<parent>::<qid>'
     """
@@ -290,8 +281,14 @@ def qid_to_tag(qid: Union[str, int], prefix: Optional[str] = None, regex: bool =
     if cfg[CONFIG_KEY_UW_COMLEX]:
         return _parent_to_qid_query(COMLEX_PARENT_TAG, qid_text, regex=regex)
 
-    # Final fallback path: TAG_PREFIX parent expression.
-    fallback_parent = normalize_parent_tag_expr(prefix or cfg[CONFIG_KEY_TAG_PREFIX], fallback=DEFAULT_TAG_PREFIX)
+    # Final fallback path: built-in fallback parent expression.
+    fallback_parent_source = _normalize_legacy_fallback_parent(
+        str(prefix or DEFAULT_FALLBACK_QID_PARENT).strip()
+    )
+    fallback_parent = normalize_parent_tag_expr(
+        fallback_parent_source,
+        fallback=DEFAULT_FALLBACK_QID_PARENT,
+    )
     return _parent_to_qid_query(fallback_parent, qid_text, regex=regex)
 
 
@@ -320,6 +317,8 @@ def build_missed_filter(tag_expr: Optional[str] = None) -> str:
 def add_missed_filter(query: str, missed_on: bool) -> str:
     """Append the missed filter exactly like the current code path does."""
     if not missed_on:
+        return query
+    if not str(query).strip():
         return query
     return f"({query}) {build_missed_filter()}"
 

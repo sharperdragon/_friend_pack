@@ -29,7 +29,6 @@ FIND_QIDS_CONFIG_KEYS = (
     "UW_STEP",
     "UW_COMLEX",
     "QID_parent_tag",
-    "TAG_PREFIX",
     "MISSED_tag",
     "default_missed_only",
 )
@@ -37,7 +36,6 @@ FIND_QIDS_DEFAULT_CONFIG: dict[str, Any] = {
     "UW_STEP": False,
     "UW_COMLEX": False,
     "QID_parent_tag": "",
-    "TAG_PREFIX": "\\bUWorld::\\w+::",
     "MISSED_tag": "##Missed-Qs",
     "default_missed_only": False,
 }
@@ -72,18 +70,14 @@ def _normalize_module_value(module_name: str, key: str, value: Any) -> Any:
         fallback = bool(FIND_QIDS_DEFAULT_CONFIG.get(key, False))
         return _to_bool(value, fallback=fallback)
 
-    if module_name == FIND_QIDS_MODULE_NAME and key in {"QID_parent_tag", "TAG_PREFIX"}:
+    if module_name == FIND_QIDS_MODULE_NAME and key == "QID_parent_tag":
         text = str(value or "").strip()
         if text.startswith("tag:re:"):
             text = text[len("tag:re:"):]
         elif text.startswith("tag:"):
             text = text[len("tag:"):]
         text = text.strip().rstrip(":").strip()
-        if key == "TAG_PREFIX" and text in {"#UWorld::\\w+", "#UWORLD::\\w+"}:
-            text = "\\bUWorld::\\w+"
-        if key == "QID_parent_tag":
-            return text
-        return text or FIND_QIDS_DEFAULT_CONFIG["TAG_PREFIX"].rstrip(":")
+        return text
 
     if module_name == FIND_QIDS_MODULE_NAME and key == "MISSED_tag":
         text = str(value or "").strip()

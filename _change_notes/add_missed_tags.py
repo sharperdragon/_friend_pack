@@ -7,6 +7,7 @@ from typing import Any
 from aqt.qt import QAction, QInputDialog, QMenu
 from aqt.utils import showInfo, tooltip
 
+from ..menu_styles import build_context_submenu_item_stylesheet
 from ..utils.config_manager import ConfigManager
 
 # ! ----------------------------- CONFIG SECTIONS -----------------------------
@@ -154,6 +155,26 @@ def _to_text(value: Any, fallback: str) -> str:
     return text or fallback
 
 
+def _prompt_label_from_input_item(item: str, fallback: str) -> str:
+    text = str(item or "").strip()
+    if not text:
+        return fallback
+    base = text.rstrip(":").strip()
+    if not base:
+        return fallback
+    if base.endswith("#"):
+        return f"{base}:"
+    return f"{base} #:"
+
+
+def _read_menu_label(cfg: dict[str, Any], fallback: str) -> str:
+    menu_label = cfg.get("menu_label")
+    if isinstance(menu_label, str) and menu_label.strip():
+        return menu_label.strip()
+    # Backward compatibility with older key name.
+    return _to_text(cfg.get("label", fallback), fallback)
+
+
 def _to_bool(value: Any, fallback: bool) -> bool:
     if isinstance(value, bool):
         return value
@@ -186,6 +207,56 @@ def _to_prompt_number_style(value: Any, fallback: str) -> str:
     if text in {PROMPT_STYLE_RANGE_THEN_NUMBER, PROMPT_STYLE_NUMBER_ONLY}:
         return text
     return fallback
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _get_saved_prompt_input(prompt_key: str) -> str:
+    if not prompt_key:
+        return ""
+    section_cfg = _as_dict(ConfigManager.get_section(CONFIG_SECTION, default={}))
+    runtime_cfg = _as_dict(section_cfg.get("runtime"))
+    last_inputs = _as_dict(runtime_cfg.get("last_prompt_inputs"))
+    value = last_inputs.get(prompt_key, "")
+    return value if isinstance(value, str) else ""
+
+
+def _save_prompt_input(prompt_key: str, prompt_value: str) -> None:
+    if not prompt_key:
+        return
+
+    try:
+        section_cfg = _as_dict(ConfigManager.get_section(CONFIG_SECTION, default={}))
+        runtime_cfg = _as_dict(section_cfg.get("runtime"))
+        last_inputs = _as_dict(runtime_cfg.get("last_prompt_inputs"))
+
+        normalized_value = str(prompt_value)
+        current_value = last_inputs.get(prompt_key)
+        if isinstance(current_value, str) and current_value == normalized_value:
+            return
+
+        updated_section = ConfigManager.deep_merge_dicts({}, section_cfg)
+        updated_runtime_cfg = _as_dict(updated_section.get("runtime"))
+        updated_last_inputs = _as_dict(updated_runtime_cfg.get("last_prompt_inputs"))
+        updated_last_inputs[prompt_key] = normalized_value
+        updated_runtime_cfg["last_prompt_inputs"] = updated_last_inputs
+        updated_section["runtime"] = updated_runtime_cfg
+        ConfigManager.save_section(CONFIG_SECTION, updated_section)
+    except Exception:
+        # Prompt-memory persistence should not block tagging behavior.
+        return
+
+
+def _text_prompt_with_default(parent: Any, title: str, label: str, default_text: str = "") -> tuple[str, bool]:
+    dialog = QInputDialog(parent)
+    dialog.setInputMode(QInputDialog.InputMode.TextInput)
+    dialog.setWindowTitle(title)
+    dialog.setLabelText(label)
+    dialog.setTextValue(default_text)
+    accepted = bool(dialog.exec())
+    return dialog.textValue(), accepted
 
 
 def _split_tag_path(text: str) -> list[str]:
@@ -307,6 +378,23 @@ def _is_bank_enabled(bank_name: str) -> bool:
 
 
 def _normalize_other_actions(raw: Any) -> list[dict[str, Any]]:
+    return _normalize_other_actions_with_prompt_defaults(
+        raw,
+        default_prompt_kind=PROMPT_KIND_NONE,
+        default_prompt_number_style=PROMPT_STYLE_NUMBER_ONLY,
+        default_prompt_range_block_size=DEFAULT_TEST_RANGE_BLOCK_SIZE,
+        default_prompt_input_items=DEFAULT_FORM_INPUT_ITEMS,
+    )
+
+
+def _normalize_other_actions_with_prompt_defaults(
+    raw: Any,
+    *,
+    default_prompt_kind: str,
+    default_prompt_number_style: str,
+    default_prompt_range_block_size: int,
+    default_prompt_input_items: list[str],
+) -> list[dict[str, Any]]:
     if isinstance(raw, list):
         source = raw
         fallback_to_defaults = False
@@ -331,10 +419,10 @@ def _normalize_other_actions(raw: Any) -> list[dict[str, Any]]:
             prompt_input_items,
         ) = _resolve_action_prompt(
             item,
-            default_kind=PROMPT_KIND_NONE,
-            default_number_style=PROMPT_STYLE_NUMBER_ONLY,
-            default_range_block_size=DEFAULT_TEST_RANGE_BLOCK_SIZE,
-            default_form_input_items=DEFAULT_FORM_INPUT_ITEMS,
+            default_kind=default_prompt_kind,
+            default_number_style=default_prompt_number_style,
+            default_range_block_size=default_prompt_range_block_size,
+            default_form_input_items=default_prompt_input_items,
         )
         out.append(
             {
@@ -494,9 +582,58 @@ def _reload_runtime_config() -> None:
     if not isinstance(other_tagging_cfg, dict):
         other_tagging_cfg = {}
 
-    date_cfg = merged_cfg.get("date", {})
-    if not isinstance(date_cfg, dict):
-        date_cfg = {}
+    action_defaults_cfg = merged_cfg.get("action_defaults", {})
+    if not isinstance(action_defaults_cfg, dict):
+        action_defaults_cfg = {}
+    action_defaults_prompt_cfg = action_defaults_cfg.get("prompt", {})
+    if not isinstance(action_defaults_prompt_cfg, dict):
+        action_defaults_prompt_cfg = {}
+
+    has_action_default_include_day_segment = "include_day_segment" in action_defaults_cfg
+    action_default_include_day_segment = _to_bool(
+        action_defaults_cfg.get("include_day_segment", DEFAULT_INCLUDE_DAY_SEGMENT),
+        DEFAULT_INCLUDE_DAY_SEGMENT,
+    )
+
+    has_action_default_add_missed_date_context = "add_missed_date_context" in action_defaults_cfg
+    action_default_add_missed_date_context = _to_bool(
+        action_defaults_cfg.get("add_missed_date_context", True),
+        True,
+    )
+
+    has_action_default_child_of_primary = "child_of_primary_missed" in action_defaults_cfg
+    action_default_child_of_primary = _to_bool(
+        action_defaults_cfg.get("child_of_primary_missed", True),
+        True,
+    )
+
+    has_action_default_prompt_kind = "kind" in action_defaults_prompt_cfg
+    action_default_prompt_kind = _to_prompt_kind(
+        action_defaults_prompt_cfg.get("kind", PROMPT_KIND_NONE),
+        PROMPT_KIND_NONE,
+    )
+
+    has_action_default_prompt_number_style = "number_style" in action_defaults_prompt_cfg
+    action_default_prompt_number_style = _to_prompt_number_style(
+        action_defaults_prompt_cfg.get("number_style", PROMPT_STYLE_NUMBER_ONLY),
+        PROMPT_STYLE_NUMBER_ONLY,
+    )
+
+    has_action_default_prompt_range_block_size = "range_block_size" in action_defaults_prompt_cfg
+    action_default_prompt_range_block_size = _to_positive_int(
+        action_defaults_prompt_cfg.get("range_block_size", DEFAULT_TEST_RANGE_BLOCK_SIZE),
+        DEFAULT_TEST_RANGE_BLOCK_SIZE,
+    )
+
+    has_action_default_prompt_input_items = "input_items" in action_defaults_prompt_cfg
+    action_default_prompt_input_items = _to_string_list(
+        action_defaults_prompt_cfg.get("input_items"),
+        fallback=DEFAULT_FORM_INPUT_ITEMS,
+    )
+
+    legacy_date_cfg = merged_cfg.get("date", {})
+    if not isinstance(legacy_date_cfg, dict):
+        legacy_date_cfg = {}
 
     PRIMARY_MISSED_TAG = _to_text(
         merged_cfg.get("primary_missed_tag", DEFAULT_PRIMARY_MISSED_TAG),
@@ -515,18 +652,9 @@ def _reload_runtime_config() -> None:
     MSG_NO_NOTES_SELECTED = DEFAULT_MSG_NO_NOTES_SELECTED
     MSG_INVALID_TEST_NUMBER = DEFAULT_MSG_INVALID_TEST_NUMBER
 
-    ACTION_LABEL_BASE = _to_text(
-        base_cfg.get("label", DEFAULT_ACTION_LABEL_BASE),
-        DEFAULT_ACTION_LABEL_BASE,
-    )
-    ACTION_LABEL_MULTI_MISSED = _to_text(
-        multi_missed_cfg.get("label", DEFAULT_ACTION_LABEL_MULTI_MISSED),
-        DEFAULT_ACTION_LABEL_MULTI_MISSED,
-    )
-    ACTION_LABEL_CORRECT_GUESS = _to_text(
-        correct_guess_cfg.get("label", DEFAULT_ACTION_LABEL_CORRECT_GUESS),
-        DEFAULT_ACTION_LABEL_CORRECT_GUESS,
-    )
+    ACTION_LABEL_BASE = _read_menu_label(base_cfg, DEFAULT_ACTION_LABEL_BASE)
+    ACTION_LABEL_MULTI_MISSED = _read_menu_label(multi_missed_cfg, DEFAULT_ACTION_LABEL_MULTI_MISSED)
+    ACTION_LABEL_CORRECT_GUESS = _read_menu_label(correct_guess_cfg, DEFAULT_ACTION_LABEL_CORRECT_GUESS)
 
     PROMPT_TITLE_GENERIC = DEFAULT_PROMPT_TITLE_GENERIC
     PROMPT_LABEL_GENERIC = DEFAULT_PROMPT_LABEL_GENERIC
@@ -535,7 +663,7 @@ def _reload_runtime_config() -> None:
 
     base_child_of_primary = _resolve_child_of_primary_flag(
         base_cfg,
-        default_child=False,
+        default_child=action_default_child_of_primary if has_action_default_child_of_primary else False,
         legacy_absolute_keys=("tags",),
     )
     MISSED_BASE_TAG = _resolve_action_tags(
@@ -548,7 +676,11 @@ def _reload_runtime_config() -> None:
     _set_missed_date_context_from_cfg(
         base_cfg,
         ACTION_KEY_BASE_PLAIN,
-        DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_BASE_PLAIN],
+        (
+            action_default_add_missed_date_context
+            if has_action_default_add_missed_date_context
+            else DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_BASE_PLAIN]
+        ),
     )
 
     DEFAULT_TEST_TAG_PREFIX_RUNTIME = _to_text(
@@ -560,13 +692,10 @@ def _reload_runtime_config() -> None:
         DEFAULT_NBME_TAG_PREFIX,
     )
 
-    SUBSET_1_NAME = _to_text(
-        uworld_cfg.get("label", DEFAULT_UWORLD_LABEL),
-        DEFAULT_UWORLD_LABEL,
-    )
+    SUBSET_1_NAME = _read_menu_label(uworld_cfg, DEFAULT_UWORLD_LABEL)
     uworld_child_of_primary = _resolve_child_of_primary_flag(
         uworld_cfg,
-        default_child=True,
+        default_child=action_default_child_of_primary if has_action_default_child_of_primary else True,
         legacy_absolute_keys=("base_tags",),
     )
     SUBSET_1_TAG = _resolve_action_tags(
@@ -583,25 +712,38 @@ def _reload_runtime_config() -> None:
         UWORLD_PROMPT_INPUT_ITEMS,
     ) = _resolve_action_prompt(
         uworld_cfg,
-        default_kind=PROMPT_KIND_NUMBER,
-        default_number_style=PROMPT_STYLE_RANGE_THEN_NUMBER,
-        default_range_block_size=DEFAULT_TEST_RANGE_BLOCK_SIZE,
-        default_form_input_items=DEFAULT_FORM_INPUT_ITEMS,
+        default_kind=action_default_prompt_kind if has_action_default_prompt_kind else PROMPT_KIND_NUMBER,
+        default_number_style=(
+            action_default_prompt_number_style
+            if has_action_default_prompt_number_style
+            else PROMPT_STYLE_RANGE_THEN_NUMBER
+        ),
+        default_range_block_size=(
+            action_default_prompt_range_block_size
+            if has_action_default_prompt_range_block_size
+            else DEFAULT_TEST_RANGE_BLOCK_SIZE
+        ),
+        default_form_input_items=(
+            action_default_prompt_input_items
+            if has_action_default_prompt_input_items
+            else DEFAULT_FORM_INPUT_ITEMS
+        ),
         legacy_range_block_size_keys=("test_range_block_size",),
     )
     _set_missed_date_context_from_cfg(
         uworld_cfg,
         ACTION_KEY_UWORLD_TEST_PROMPT,
-        DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_UWORLD_TEST_PROMPT],
+        (
+            action_default_add_missed_date_context
+            if has_action_default_add_missed_date_context
+            else DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_UWORLD_TEST_PROMPT]
+        ),
     )
 
-    SUBSET_2_NAME = _to_text(
-        nbme_cfg.get("label", DEFAULT_NBME_LABEL),
-        DEFAULT_NBME_LABEL,
-    )
+    SUBSET_2_NAME = _read_menu_label(nbme_cfg, DEFAULT_NBME_LABEL)
     nbme_child_of_primary = _resolve_child_of_primary_flag(
         nbme_cfg,
-        default_child=True,
+        default_child=action_default_child_of_primary if has_action_default_child_of_primary else True,
         legacy_absolute_keys=("base_tags",),
     )
     SUBSET_2_TAG = _resolve_action_tags(
@@ -618,24 +760,37 @@ def _reload_runtime_config() -> None:
         NBME_PROMPT_INPUT_ITEMS,
     ) = _resolve_action_prompt(
         nbme_cfg,
-        default_kind=PROMPT_KIND_FORM,
-        default_number_style=PROMPT_STYLE_NUMBER_ONLY,
-        default_range_block_size=DEFAULT_TEST_RANGE_BLOCK_SIZE,
-        default_form_input_items=DEFAULT_FORM_INPUT_ITEMS,
+        default_kind=action_default_prompt_kind if has_action_default_prompt_kind else PROMPT_KIND_FORM,
+        default_number_style=(
+            action_default_prompt_number_style
+            if has_action_default_prompt_number_style
+            else PROMPT_STYLE_NUMBER_ONLY
+        ),
+        default_range_block_size=(
+            action_default_prompt_range_block_size
+            if has_action_default_prompt_range_block_size
+            else DEFAULT_TEST_RANGE_BLOCK_SIZE
+        ),
+        default_form_input_items=(
+            action_default_prompt_input_items
+            if has_action_default_prompt_input_items
+            else DEFAULT_FORM_INPUT_ITEMS
+        ),
     )
     _set_missed_date_context_from_cfg(
         nbme_cfg,
         ACTION_KEY_NBME_FORM_PROMPT,
-        DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_NBME_FORM_PROMPT],
+        (
+            action_default_add_missed_date_context
+            if has_action_default_add_missed_date_context
+            else DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_NBME_FORM_PROMPT]
+        ),
     )
 
-    AMBOSS_TOP_LEVEL_NAME = _to_text(
-        amboss_cfg.get("label", DEFAULT_AMBOSS_LABEL),
-        DEFAULT_AMBOSS_LABEL,
-    )
+    AMBOSS_TOP_LEVEL_NAME = _read_menu_label(amboss_cfg, DEFAULT_AMBOSS_LABEL)
     amboss_child_of_primary = _resolve_child_of_primary_flag(
         amboss_cfg,
-        default_child=True,
+        default_child=action_default_child_of_primary if has_action_default_child_of_primary else True,
         legacy_absolute_keys=("base_tag",),
     )
     amboss_default_segment = _to_text(
@@ -658,21 +813,37 @@ def _reload_runtime_config() -> None:
         AMBOSS_PROMPT_INPUT_ITEMS,
     ) = _resolve_action_prompt(
         amboss_cfg,
-        default_kind=PROMPT_KIND_NUMBER,
-        default_number_style=PROMPT_STYLE_NUMBER_ONLY,
-        default_range_block_size=DEFAULT_TEST_RANGE_BLOCK_SIZE,
-        default_form_input_items=DEFAULT_FORM_INPUT_ITEMS,
+        default_kind=action_default_prompt_kind if has_action_default_prompt_kind else PROMPT_KIND_NUMBER,
+        default_number_style=(
+            action_default_prompt_number_style
+            if has_action_default_prompt_number_style
+            else PROMPT_STYLE_NUMBER_ONLY
+        ),
+        default_range_block_size=(
+            action_default_prompt_range_block_size
+            if has_action_default_prompt_range_block_size
+            else DEFAULT_TEST_RANGE_BLOCK_SIZE
+        ),
+        default_form_input_items=(
+            action_default_prompt_input_items
+            if has_action_default_prompt_input_items
+            else DEFAULT_FORM_INPUT_ITEMS
+        ),
         legacy_number_style_keys=("number_style",),
     )
     _set_missed_date_context_from_cfg(
         amboss_cfg,
         ACTION_KEY_AMBOSS_TEST_PROMPT,
-        DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_AMBOSS_TEST_PROMPT],
+        (
+            action_default_add_missed_date_context
+            if has_action_default_add_missed_date_context
+            else DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_AMBOSS_TEST_PROMPT]
+        ),
     )
 
     multi_missed_child_of_primary = _resolve_child_of_primary_flag(
         multi_missed_cfg,
-        default_child=True,
+        default_child=action_default_child_of_primary if has_action_default_child_of_primary else True,
         legacy_absolute_keys=("absolute_tag",),
     )
     multi_missed_tags = _resolve_action_tags(
@@ -687,12 +858,16 @@ def _reload_runtime_config() -> None:
     _set_missed_date_context_from_cfg(
         multi_missed_cfg,
         ACTION_KEY_MULTI_MISSED,
-        DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_MULTI_MISSED],
+        (
+            action_default_add_missed_date_context
+            if has_action_default_add_missed_date_context
+            else DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_MULTI_MISSED]
+        ),
     )
 
     correct_guess_child_of_primary = _resolve_child_of_primary_flag(
         correct_guess_cfg,
-        default_child=False,
+        default_child=action_default_child_of_primary if has_action_default_child_of_primary else False,
         legacy_absolute_keys=("tags",),
     )
     CORRECT_GUESS_TAGS = _resolve_action_tags(
@@ -705,7 +880,11 @@ def _reload_runtime_config() -> None:
     _set_missed_date_context_from_cfg(
         correct_guess_cfg,
         ACTION_KEY_CORRECT_GUESS,
-        DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_CORRECT_GUESS],
+        (
+            action_default_add_missed_date_context
+            if has_action_default_add_missed_date_context
+            else DEFAULT_ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_CORRECT_GUESS]
+        ),
     )
 
     OTHER_SUBMENU_BOOL = _to_bool(
@@ -717,8 +896,11 @@ def _reload_runtime_config() -> None:
         DEFAULT_OTHER_SUBMENU_LABEL,
     )
     OTHER_CHILD_OF_PRIMARY = _to_bool(
-        other_tagging_cfg.get("child_of_primary_missed", True),
-        True,
+        other_tagging_cfg.get(
+            "child_of_primary_missed",
+            action_default_child_of_primary if has_action_default_child_of_primary else True,
+        ),
+        action_default_child_of_primary if has_action_default_child_of_primary else True,
     )
     OTHER_TAG_SEGMENT_GROUP = _to_bool(
         other_tagging_cfg.get("tag_segment_group", DEFAULT_OTHER_TAG_SEGMENT_GROUP),
@@ -729,15 +911,51 @@ def _reload_runtime_config() -> None:
         DEFAULT_OTHER_GROUP_SEGMENT,
     )
     ACTION_MISSED_DATE_CONTEXT[ACTION_KEY_OTHER_RESOURCE] = _to_bool(
-        other_tagging_cfg.get("add_missed_date_context", DEFAULT_OTHER_ADD_MISSED_DATE_CONTEXT),
-        DEFAULT_OTHER_ADD_MISSED_DATE_CONTEXT,
+        other_tagging_cfg.get(
+            "add_missed_date_context",
+            (
+                action_default_add_missed_date_context
+                if has_action_default_add_missed_date_context
+                else DEFAULT_OTHER_ADD_MISSED_DATE_CONTEXT
+            ),
+        ),
+        (
+            action_default_add_missed_date_context
+            if has_action_default_add_missed_date_context
+            else DEFAULT_OTHER_ADD_MISSED_DATE_CONTEXT
+        ),
     )
-    OTHER_ACTIONS = _normalize_other_actions(other_cfg.get("actions", DEFAULT_OTHER_ACTIONS))
+    OTHER_ACTIONS = _normalize_other_actions_with_prompt_defaults(
+        other_cfg.get("actions", DEFAULT_OTHER_ACTIONS),
+        default_prompt_kind=action_default_prompt_kind if has_action_default_prompt_kind else PROMPT_KIND_NONE,
+        default_prompt_number_style=(
+            action_default_prompt_number_style
+            if has_action_default_prompt_number_style
+            else PROMPT_STYLE_NUMBER_ONLY
+        ),
+        default_prompt_range_block_size=(
+            action_default_prompt_range_block_size
+            if has_action_default_prompt_range_block_size
+            else DEFAULT_TEST_RANGE_BLOCK_SIZE
+        ),
+        default_prompt_input_items=(
+            action_default_prompt_input_items
+            if has_action_default_prompt_input_items
+            else DEFAULT_FORM_INPUT_ITEMS
+        ),
+    )
     TEST_RANGE_BLOCK_SIZE = UWORLD_RANGE_BLOCK_SIZE
 
-    include_day_segment_raw = date_cfg.get(
+    include_day_segment_raw = merged_cfg.get(
         "include_day_segment",
-        DEFAULT_INCLUDE_DAY_SEGMENT,
+        legacy_date_cfg.get(
+            "include_day_segment",
+            (
+                action_default_include_day_segment
+                if has_action_default_include_day_segment
+                else DEFAULT_INCLUDE_DAY_SEGMENT
+            ),
+        ),
     )
     INCLUDE_DAY_SEGMENT = _to_bool(include_day_segment_raw, DEFAULT_INCLUDE_DAY_SEGMENT)
 
@@ -954,6 +1172,9 @@ def add_other_resources_actions(browser, menu):
     submenu = None
     if OTHER_SUBMENU_BOOL:
         submenu = QMenu(OTHER_SUBMENU_LABEL, browser)
+        submenu_stylesheet = build_context_submenu_item_stylesheet()
+        if submenu_stylesheet:
+            submenu.setStyleSheet(submenu_stylesheet)
         action_target_menu = submenu
 
     for item in OTHER_ACTIONS:
@@ -1028,7 +1249,7 @@ def make_form_prompt_handler(
 ):
     def on_trigger():
         prompt_title = (title or PROMPT_TITLE_GENERIC).strip() or PROMPT_TITLE_GENERIC
-        prompt_label = (label or PROMPT_LABEL_GENERIC).strip() or PROMPT_LABEL_GENERIC
+        fallback_prompt_label = (label or PROMPT_LABEL_GENERIC).strip() or PROMPT_LABEL_GENERIC
 
         normalized_items = _to_string_list(
             input_items,
@@ -1049,12 +1270,25 @@ def make_form_prompt_handler(
         else:
             form_prefix = normalized_items[0]
 
-        form_value, ok = QInputDialog.getText(browser, prompt_title, prompt_label)
+        prompt_label = _prompt_label_from_input_item(form_prefix, fallback_prompt_label)
+        saved_form_value = _get_saved_prompt_input(action_key)
+        form_value, ok = _text_prompt_with_default(
+            browser,
+            prompt_title,
+            prompt_label,
+            default_text=saved_form_value,
+        )
         if not ok:
             return
 
+        normalized_form_value = (form_value or "").strip()
+        if normalized_form_value == "":
+            _save_prompt_input(action_key, "")
+            showInfo(MSG_INVALID_TEST_NUMBER)
+            return
+
         try:
-            form_number = int((form_value or "").strip())
+            form_number = int(normalized_form_value)
         except ValueError:
             showInfo(MSG_INVALID_TEST_NUMBER)
             return
@@ -1062,6 +1296,7 @@ def make_form_prompt_handler(
         if form_number <= 0:
             showInfo(MSG_INVALID_TEST_NUMBER)
             return
+        _save_prompt_input(action_key, normalized_form_value)
 
         if not browser.selectedNotes():
             showInfo(MSG_NO_NOTES_SELECTED)
@@ -1094,7 +1329,13 @@ def make_test_prompt_handler(
     def on_trigger():
         prompt_title = (title or PROMPT_TITLE_GENERIC).strip() or PROMPT_TITLE_GENERIC
         prompt_label = (label or PROMPT_LABEL_GENERIC).strip() or PROMPT_LABEL_GENERIC
-        test_num, ok = QInputDialog.getText(browser, prompt_title, prompt_label)
+        saved_test_num = _get_saved_prompt_input(action_key)
+        test_num, ok = _text_prompt_with_default(
+            browser,
+            prompt_title,
+            prompt_label,
+            default_text=saved_test_num,
+        )
         if not ok:
             return
 
@@ -1106,6 +1347,7 @@ def make_test_prompt_handler(
         )
 
         if test_num == "":
+            _save_prompt_input(action_key, "")
             formatted_tag = f"{base_tag}"
         else:
             try:
@@ -1113,6 +1355,7 @@ def make_test_prompt_handler(
             except ValueError:
                 formatted_tag = f"{base_tag}"
             else:
+                _save_prompt_input(action_key, test_num)
                 if normalized_number_style == PROMPT_STYLE_RANGE_THEN_NUMBER:
                     block_size = _to_positive_int(range_block_size, TEST_RANGE_BLOCK_SIZE)
                     lower = ((test_number - 1) // block_size) * block_size + 1
