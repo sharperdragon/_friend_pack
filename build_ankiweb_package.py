@@ -38,6 +38,9 @@ EXCLUDED_FILE_NAMES = {
     "planned_update_config.json",
     "pyrightconfig.json",
 }
+EXCLUDED_RELATIVE_PATHS = {
+    "description_anki-web.md",
+}
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
 EXCLUDED_GLOB_PATTERNS = {
     "*.log",
@@ -63,6 +66,10 @@ REQUIRED_CONFIG_OBJECT_SECTIONS = (
 
 
 def _is_excluded(rel_path: Path) -> bool:
+    rel_posix = rel_path.as_posix()
+    if rel_posix in EXCLUDED_RELATIVE_PATHS:
+        return True
+
     parts = rel_path.parts
     if any(part in EXCLUDED_DIR_NAMES for part in parts):
         return True
