@@ -6,7 +6,7 @@ from typing import Any, TypedDict
 from aqt.qt import QAction, QMenu
 from aqt.utils import showInfo, tooltip
 
-from ..menu_styles import build_custom_tags_menu_stylesheet
+from ..utils.menu_styles import build_custom_tags_menu_stylesheet
 from ..utils.config_manager import ConfigManager
 
 # ! ----------------------------- CONFIG SECTION -----------------------------

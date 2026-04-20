@@ -7,7 +7,7 @@ from typing import Any
 from aqt.qt import QAction, QInputDialog, QMenu
 from aqt.utils import showInfo, tooltip
 
-from ..menu_styles import build_context_submenu_item_stylesheet
+from ..utils.menu_styles import build_context_submenu_item_stylesheet
 from ..utils.config_manager import ConfigManager
 
 # ! ----------------------------- CONFIG SECTIONS -----------------------------

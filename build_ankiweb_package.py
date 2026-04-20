@@ -48,6 +48,11 @@ BANNED_ARCHIVE_ENTRIES = frozenset(
         "planned_update_config.json",
     }
 )
+# Minimum root-level files expected before packaging.
+REQUIRED_ROOT_FILES = (
+    "__init__.py",
+    "config.json",
+)
 REQUIRED_CONFIG_FILENAME = "config.json"
 REQUIRED_CONFIG_OBJECT_SECTIONS = (
     "add_custom_tags",
@@ -95,6 +100,17 @@ def _assert_archive_has_no_banned_entries(archive_path: Path) -> None:
         )
 
 
+def _assert_required_root_files(root: Path) -> None:
+    """Ensure required root-level files exist before packaging."""
+    missing = sorted(
+        name
+        for name in REQUIRED_ROOT_FILES
+        if not (root / name).exists() or not (root / name).is_file()
+    )
+    if missing:
+        raise RuntimeError("Missing required root file(s): " + ", ".join(missing))
+
+
 def _assert_config_json_is_valid(root: Path) -> None:
     config_path = root / REQUIRED_CONFIG_FILENAME
     if not config_path.exists() or not config_path.is_file():
@@ -114,6 +130,7 @@ def _assert_config_json_is_valid(root: Path) -> None:
 
 
 def build_archive() -> Path:
+    _assert_required_root_files(ADDON_ROOT)
     _assert_config_json_is_valid(ADDON_ROOT)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

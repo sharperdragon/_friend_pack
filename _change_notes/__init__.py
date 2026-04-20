@@ -6,7 +6,7 @@ from aqt.qt import QMenu
 
 from .add_custom_tags import add_custom_tag_menu_items
 from . import add_missed_tags as missed_tags_module
-from ..menu_styles import (
+from ..utils.menu_styles import (
     build_context_submenu_arrow_stylesheet,
     build_missed_tags_menu_stylesheet,
 )
