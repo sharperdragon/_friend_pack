@@ -55,9 +55,16 @@ Example tags created by default may look like:
 #Custom::correct_marked
 ```
 
-<div >
-<img src="custom_tag_menu_ex.png" style="padding: 12px 10vw; object-fit:contain; width: 100%; max-width: 100vw">
+<div style="text-align:center; margin: 12px 0;">
+  <img
+    src="https://raw.githubusercontent.com/sharperdragon/_friend_pack/refs/heads/main/web-resources/missed_tag_menu_ex.png"
+    alt="Missed tag menu example"
+    style="display:block; width:85%; max-width:900px; height:auto; margin:0 auto; border:1px solid #ddd; border-radius:8px;">
 </div>
+
+<br>
+
+---
 
 ## Custom Tags bonus menu
 
@@ -68,6 +75,17 @@ This is useful for personal workflow tags such as:
 #Custom::Review
 #Custom::Imaging
 ```
+
+<div style="text-align:center; margin: 12px 0;">
+  <img
+    src="https://raw.githubusercontent.com/sharperdragon/_friend_pack/refs/heads/main/web-resources/custom_tag_menu_ex.png"
+    alt="Missed tag menu example"
+    style="display:block; width:85%; max-width:900px; height:auto; margin:0 auto; border:1px solid #ddd; border-radius:8px;">
+</div>
+
+<br>
+
+---
 
 ## Configurable
 
