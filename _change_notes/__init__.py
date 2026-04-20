@@ -36,9 +36,9 @@ def add_limited_missed_tag_menu_items(browser, menu):
 
     missed_tags_module.add_uworld_tags(browser, tag_menu)
     missed_tags_module.add_nbme_tag(browser, tag_menu)
-    missed_tags_module.add_amboss_tag(browser, tag_menu)
-    missed_tags_module.add_base_plain_action(browser, tag_menu)
     missed_tags_module.add_multi_tag(browser, tag_menu)
+    missed_tags_module.add_base_plain_action(browser, tag_menu)
+    missed_tags_module.add_amboss_tag(browser, tag_menu)
     missed_tags_module.add_correct_guess_action(browser, tag_menu)
 
     missed_tags_module.add_other_resources_actions(browser, tag_menu)
