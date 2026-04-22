@@ -137,7 +137,7 @@ class MissedQIDDialog(QDialog):
         try:
             cfg = get_config()
             missed_tag = str(cfg.get(CONFIG_KEY_MISSED_TAG, "##Missed-Qs")).strip() or "##Missed-Qs"
-            missed_label = f"{missed_tag} filter"
+            missed_label = f"Missed-Qs filter"
             default_missed_only = bool(cfg.get(CONFIG_KEY_DEFAULT_MISSED_ONLY, False))
             _dbg(
                 f"Find_QIDs: MissedQIDDialog default_missed_only={default_missed_only} "

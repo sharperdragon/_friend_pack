@@ -250,8 +250,14 @@ def _save_prompt_input(prompt_key: str, prompt_value: str) -> None:
 
 
 def _text_prompt_with_default(parent: Any, title: str, label: str, default_text: str = "") -> tuple[str, bool]:
-    dialog = QInputDialog(parent)
-    dialog.setInputMode(QInputDialog.InputMode.TextInput)
+    """
+    Wrapper for an instance-backed text prompt.
+
+    Runtime Qt bindings provide these instance members, but some type stubs omit them.
+    """
+    dialog_api: Any = QInputDialog
+    dialog: Any = dialog_api(parent)
+    dialog.setInputMode(dialog_api.InputMode.TextInput)
     dialog.setWindowTitle(title)
     dialog.setLabelText(label)
     dialog.setTextValue(default_text)
