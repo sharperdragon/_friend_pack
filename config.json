@@ -84,7 +84,8 @@
             "menu_label": "True-learn 🌀",
             "tag_segment": "True-learn",
             "prompt": {
-              "kind": "none"
+              "kind": "number",
+              "number_style": "rotation_then_number"
             }
           }
         ]

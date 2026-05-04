@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 # pyright: reportMissingImports=false
@@ -77,6 +78,7 @@ class FriendPackConfigDialog(QDialog):
 
         self.config_editor = QTextEdit()
         self.config_editor.setMinimumSize(EDITOR_MIN_WIDTH, EDITOR_MIN_HEIGHT)
+        self.config_editor.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
         self.config_editor.setPlainText(
             json.dumps(self._effective_config or {}, indent=4, ensure_ascii=False)
         )
@@ -122,6 +124,9 @@ class FriendPackConfigDialog(QDialog):
         text = self._help_md.strip()
         if not text:
             text = "# No config.md found"
+
+        # Keep rendering predictable across Qt versions by dropping inline HTML/CSS.
+        text = re.sub(r"<[^>]+>", "", text)
 
         if hasattr(self.help_view, "setMarkdown"):
             self.help_view.setMarkdown(text)
@@ -270,11 +275,11 @@ class FriendPackConfigDialog(QDialog):
                             if (
                                 "kind" in action_defaults_prompt
                                 and isinstance(action_defaults_prompt["kind"], str)
-                                and action_defaults_prompt["kind"] not in {"none", "number", "form"}
+                                and action_defaults_prompt["kind"] not in {"none", "number", "form", "text"}
                             ):
                                 errors.append(
                                     "Invalid `add_missed_tags.action_defaults.prompt.kind`: "
-                                    "expected one of none|number|form."
+                                    "expected one of none|number|form|text."
                                 )
                             expect_string(
                                 action_defaults_prompt,
@@ -332,10 +337,10 @@ class FriendPackConfigDialog(QDialog):
                         if (
                             "kind" in prompt_cfg
                             and isinstance(prompt_cfg["kind"], str)
-                            and prompt_cfg["kind"] not in {"none", "number", "form"}
+                            and prompt_cfg["kind"] not in {"none", "number", "form", "text"}
                         ):
                             errors.append(
-                                f"Invalid `{path}.prompt.kind`: expected one of none|number|form."
+                                f"Invalid `{path}.prompt.kind`: expected one of none|number|form|text."
                             )
                         expect_string(prompt_cfg, "number_style", f"{path}.prompt.number_style")
                         if (

@@ -49,12 +49,14 @@ PROMPT_STYLE_NUMBER_ONLY = "number_only"
 PROMPT_KIND_NONE = "none"
 PROMPT_KIND_NUMBER = "number"
 PROMPT_KIND_FORM = "form"
+PROMPT_KIND_TEXT = "text"
 DEFAULT_FORM_INPUT_ITEMS = ["Form"]
 
 # ? Hardcoded UI messages (intentionally not configurable)
 DEFAULT_MISSED_TAGS_MENU_LABEL = "Missed Tags ❌"
 DEFAULT_MSG_NO_NOTES_SELECTED = "❌ No notes selected."
 DEFAULT_MSG_INVALID_TEST_NUMBER = "❌ Please enter a valid integer test number."
+DEFAULT_MSG_INVALID_TAG_SEGMENT = "❌ Please enter a valid tag segment."
 DEFAULT_ACTION_LABEL_BASE = "♦️Base"
 DEFAULT_ACTION_LABEL_MULTI_MISSED = "2x Missed 📌"
 DEFAULT_ACTION_LABEL_CORRECT_GUESS = "Guessed Correct 🎫"
@@ -107,6 +109,7 @@ AMBOSS_PROMPT_INPUT_ITEMS = list(DEFAULT_FORM_INPUT_ITEMS)
 MISSED_TAGS_MENU_LABEL = DEFAULT_MISSED_TAGS_MENU_LABEL
 MSG_NO_NOTES_SELECTED = DEFAULT_MSG_NO_NOTES_SELECTED
 MSG_INVALID_TEST_NUMBER = DEFAULT_MSG_INVALID_TEST_NUMBER
+MSG_INVALID_TAG_SEGMENT = DEFAULT_MSG_INVALID_TAG_SEGMENT
 ACTION_LABEL_BASE = DEFAULT_ACTION_LABEL_BASE
 ACTION_LABEL_MULTI_MISSED = DEFAULT_ACTION_LABEL_MULTI_MISSED
 ACTION_LABEL_CORRECT_GUESS = DEFAULT_ACTION_LABEL_CORRECT_GUESS
@@ -197,7 +200,7 @@ def _to_positive_int(value: Any, fallback: int) -> int:
 
 def _to_prompt_kind(value: Any, fallback: str) -> str:
     text = str(value).strip().lower()
-    if text in {PROMPT_KIND_NONE, PROMPT_KIND_NUMBER, PROMPT_KIND_FORM}:
+    if text in {PROMPT_KIND_NONE, PROMPT_KIND_NUMBER, PROMPT_KIND_FORM, PROMPT_KIND_TEXT}:
         return text
     return fallback
 
@@ -539,6 +542,7 @@ def _reload_runtime_config() -> None:
     global MISSED_TAGS_MENU_LABEL
     global MSG_NO_NOTES_SELECTED
     global MSG_INVALID_TEST_NUMBER
+    global MSG_INVALID_TAG_SEGMENT
     global ACTION_LABEL_BASE
     global ACTION_LABEL_MULTI_MISSED
     global ACTION_LABEL_CORRECT_GUESS
@@ -657,6 +661,7 @@ def _reload_runtime_config() -> None:
     # Hardcoded by request: these remain code-only constants.
     MSG_NO_NOTES_SELECTED = DEFAULT_MSG_NO_NOTES_SELECTED
     MSG_INVALID_TEST_NUMBER = DEFAULT_MSG_INVALID_TEST_NUMBER
+    MSG_INVALID_TAG_SEGMENT = DEFAULT_MSG_INVALID_TAG_SEGMENT
 
     ACTION_LABEL_BASE = _read_menu_label(base_cfg, DEFAULT_ACTION_LABEL_BASE)
     ACTION_LABEL_MULTI_MISSED = _read_menu_label(multi_missed_cfg, DEFAULT_ACTION_LABEL_MULTI_MISSED)
@@ -1053,6 +1058,16 @@ def add_nbme_tag(browser, menu):
                 action_key=ACTION_KEY_NBME_FORM_PROMPT,
             )
         )
+    elif NBME_PROMPT_KIND == PROMPT_KIND_TEXT:
+        action.triggered.connect(
+            make_text_prompt_handler(
+                browser,
+                base_tag,
+                action_key=ACTION_KEY_NBME_FORM_PROMPT,
+                title=PROMPT_TITLE_NBME_FORM,
+                label=PROMPT_LABEL_NBME_FORM,
+            )
+        )
     elif NBME_PROMPT_KIND == PROMPT_KIND_FORM:
         action.triggered.connect(
             make_form_prompt_handler(
@@ -1090,6 +1105,16 @@ def add_amboss_tag(browser, menu):
                 browser,
                 [AMBOSS_BASE_TAG],
                 action_key=ACTION_KEY_AMBOSS_TEST_PROMPT,
+            )
+        )
+    elif AMBOSS_PROMPT_KIND == PROMPT_KIND_TEXT:
+        action.triggered.connect(
+            make_text_prompt_handler(
+                browser,
+                AMBOSS_BASE_TAG,
+                action_key=ACTION_KEY_AMBOSS_TEST_PROMPT,
+                title=PROMPT_TITLE_AMBOSS,
+                label=PROMPT_LABEL_GENERIC,
             )
         )
     elif AMBOSS_PROMPT_KIND == PROMPT_KIND_FORM:
@@ -1142,6 +1167,16 @@ def add_uworld_tags(browser, menu):
                     browser,
                     [base],
                     action_key=ACTION_KEY_UWORLD_TEST_PROMPT,
+                )
+            )
+        elif UWORLD_PROMPT_KIND == PROMPT_KIND_TEXT:
+            action.triggered.connect(
+                make_text_prompt_handler(
+                    browser,
+                    base,
+                    action_key=ACTION_KEY_UWORLD_TEST_PROMPT,
+                    title=PROMPT_TITLE_UWORLD,
+                    label=PROMPT_LABEL_GENERIC,
                 )
             )
         elif UWORLD_PROMPT_KIND == PROMPT_KIND_FORM:
@@ -1214,6 +1249,16 @@ def add_other_resources_actions(browser, menu):
                     browser,
                     [btag],
                     action_key=ACTION_KEY_OTHER_RESOURCE,
+                )
+            )
+        elif prompt_kind == PROMPT_KIND_TEXT:
+            action.triggered.connect(
+                make_text_prompt_handler(
+                    browser,
+                    base_tag,
+                    action_key=ACTION_KEY_OTHER_RESOURCE,
+                    title=f"Enter {menu_label}",
+                    label=PROMPT_LABEL_GENERIC,
                 )
             )
         elif prompt_kind == PROMPT_KIND_FORM:
@@ -1370,6 +1415,44 @@ def make_test_prompt_handler(
                     formatted_tag = f"{base_tag}::{range_tag}::{test_number:02d}"
                 else:
                     formatted_tag = f"{base_tag}::{test_number:02d}"
+
+        if not browser.selectedNotes():
+            showInfo(MSG_NO_NOTES_SELECTED)
+            return
+
+        apply_tags_to_selected_notes(browser, [formatted_tag], action_key=action_key)
+
+    return on_trigger
+
+
+def make_text_prompt_handler(
+    browser,
+    base_tag: str,
+    action_key: str,
+    title: str | None = None,
+    label: str | None = None,
+):
+    def on_trigger():
+        prompt_title = (title or PROMPT_TITLE_GENERIC).strip() or PROMPT_TITLE_GENERIC
+        prompt_label = (label or PROMPT_LABEL_GENERIC).strip() or PROMPT_LABEL_GENERIC
+        saved_text = _get_saved_prompt_input(action_key)
+        entered_text, ok = _text_prompt_with_default(
+            browser,
+            prompt_title,
+            prompt_label,
+            default_text=saved_text,
+        )
+        if not ok:
+            return
+
+        normalized_segment = "::".join(_split_tag_path((entered_text or "").strip()))
+        if not normalized_segment:
+            _save_prompt_input(action_key, "")
+            showInfo(MSG_INVALID_TAG_SEGMENT)
+            return
+
+        _save_prompt_input(action_key, normalized_segment)
+        formatted_tag = f"{base_tag}::{normalized_segment}"
 
         if not browser.selectedNotes():
             showInfo(MSG_NO_NOTES_SELECTED)

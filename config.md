@@ -59,6 +59,9 @@ Use `prompt` when an action needs extra input before tagging.
 - `kind: form`  
   Prompts using a form-style selection or entry flow.
 
+- `kind: text`  
+  Prompts for free text and appends it as a child tag segment.
+
 - `number_style: range_then_number`  
   Organizes numbers by range first, then exact number.
 
@@ -87,7 +90,7 @@ Their shipped defaults are:
 | `base` | `absolute_tags` | `["##Missed-Qs"]` |
 | `base` | `add_missed_date_context` | `False` |
 | `uworld` | `menu_label` | `🗺️ UWorld` |
-| `uworld` | `tag_segment` | `UW_Tests` |
+| `uworld` | `tag_segment` | `*UW_Tests` |
 | `uworld` | `prompt > kind` | `number` |
 | `uworld` | `prompt > number_style` | `range_then_number` |
 | `uworld` | `prompt > range_block_size` | `25` |
@@ -223,7 +226,7 @@ Pressing **Missed Tags ❌** gives you actions for:
   `##Missed-Qs`
 
 - Pressing **🗺️ UWorld** and entering a number builds a child tag under:  
-  `##Missed-Qs::UW_Tests::...`
+  `##Missed-Qs::*UW_Tests::...`
 
 - Pressing **2x Missed 📌** builds a child tag under:  
   `##Missed-Qs::2x::...`
